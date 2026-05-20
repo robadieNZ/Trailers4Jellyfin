@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" width="400" height="280">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#0d0d1a"/>
+    </linearGradient>
+    <linearGradient id="playBtn" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f5c518"/>
+      <stop offset="100%" style="stop-color:#e8a800"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="400" height="280" fill="url(#bg)" rx="12"/>
+
+  <!-- Film strip — left edge -->
+  <rect x="0" y="0" width="42" height="280" fill="#111" rx="0"/>
+  <rect x="8"  y="18"  width="26" height="18" rx="3" fill="#2a2a2a"/>
+  <rect x="8"  y="54"  width="26" height="18" rx="3" fill="#2a2a2a"/>
+  <rect x="8"  y="90"  width="26" height="18" rx="3" fill="#2a2a2a"/>
+  <rect x="8"  y="126" width="26" height="18" rx="3" fill="#2a2a2a"/>
+  <rect x="8"  y="162" width="26" height="18" rx="3" fill="#2a2a2a"/>
+  <rect x="8"  y="198" width="26" height="18" rx="3" fill="#2a2a2a"/>
+  <rect x="8"  y="234" width="26" height="18" rx="3" fill="#2a2a2a"/>
+
+  <!-- Film strip — right edge -->
+  <rect x="358" y="0" width="42" height="280" fill="#111" rx="0"/>
+  <rect x="366" y="18"  width="26" height="18" rx="3" fill="#2a2a2a"/>
+  <rect x="366" y="54"  width="26" height="18" rx="3" fill="#2a2a2a"/>
+  <rect x="366" y="90"  width="26" height="18" rx="3" fill="#2a2a2a"/>
+  <rect x="366" y="126" width="26" height="18" rx="3" fill="#2a2a2a"/>
+  <rect x="366" y="162" width="26" height="18" rx="3" fill="#2a2a2a"/>
+  <rect x="366" y="198" width="26" height="18" rx="3" fill="#2a2a2a"/>
+  <rect x="366" y="234" width="26" height="18" rx="3" fill="#2a2a2a"/>
+
+  <!-- Centre content area -->
+  <rect x="42" y="0" width="316" height="280" fill="url(#bg)"/>
+
+  <!-- Play button circle background -->
+  <circle cx="200" cy="120" r="58" fill="#ffffff" fill-opacity="0.06"/>
+  <circle cx="200" cy="120" r="52" fill="#ffffff" fill-opacity="0.04" stroke="#f5c518" stroke-width="1.5" stroke-opacity="0.5"/>
+
+  <!-- Play triangle -->
+  <polygon points="182,94 182,146 232,120" fill="url(#playBtn)" filter="url(#glow)"/>
+
+  <!-- Title -->
+  <text x="200" y="206"
+        font-family="'Segoe UI', Arial, sans-serif"
+        font-size="26"
+        font-weight="700"
+        fill="#ffffff"
+        text-anchor="middle"
+        letter-spacing="1">Trailers4Jellyfin</text>
+
+  <!-- Subtitle -->
+  <text x="200" y="232"
+        font-family="'Segoe UI', Arial, sans-serif"
+        font-size="13"
+        fill="#f5c518"
+        text-anchor="middle"
+        letter-spacing="2"
+        font-weight="400">CINEMA MODE</text>
+
+  <!-- Subtle divider line under title -->
+  <line x1="120" y1="218" x2="280" y2="218" stroke="#f5c518" stroke-width="0.8" stroke-opacity="0.4"/>
+</svg>

@@ -6,7 +6,7 @@
         "description": "Automatically downloads trailers for upcoming and recently released movies not in your library, from TMDB/YouTube. Pairs with Cinema Mode for a real cinema experience.",
         "overview": "Cinema-style trailers for movies you haven't seen yet",
         "owner": "robadieNZ",
-        "imageUrl": "",
+        "imageUrl": "https://raw.githubusercontent.com/robadieNZ/Trailers4Jellyfin/main/Jellyfin.Plugin.Trailers4Jellyfin/Images/logo.svg",
         "versions": [
             {
                 "checksum": "6b883d89b70fdfee3e69bc5fd513bba3",

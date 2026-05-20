@@ -1,5 +1,5 @@
 ---
-version: 1.0.0.0
+version: 1.0.1.0
 name: Trailers4Jellyfin
 guid: 7635bf62-6b22-4c4c-9bc7-5d55f0c2bff0
 description: >
@@ -11,11 +11,8 @@ category: General
 owner: robadieNZ
 targetAbi: 10.11.0.0
 changelog:
-  - Initial release
-  - Fetches trailers from TMDB Now Playing, Upcoming, Popular, and Top Rated
-  - Configurable date range (3 months to all time)
-  - Built-in 720p downloader with optional yt-dlp for 1080p
-  - Skips movies already in your Jellyfin library
+  - Fix plugin loading by bundling YoutubeExplode dependencies in release zip
+  - Add plugin logo
 
 dotnetProjects:
   - name: Jellyfin.Plugin.Trailers4Jellyfin
