@@ -1,0 +1,7 @@
+---
+version: 1
+
+dotnetProjects:
+  - name: Jellyfin.Plugin.Trailers4Jellyfin
+    artifact: Jellyfin.Plugin.Trailers4Jellyfin.dll
+    version: 1.0.0

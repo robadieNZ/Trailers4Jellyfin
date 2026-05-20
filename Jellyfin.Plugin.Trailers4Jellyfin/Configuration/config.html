@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Trailers4Jellyfin</title>
+</head>
+<body>
+    <div data-role="page" class="page type-interior pluginConfigurationPage trailers4JellyfinConfigPage"
+         data-require="emby-input,emby-button,emby-checkbox,emby-select">
+        <div data-role="content">
+            <div class="content-primary">
+                <form class="trailers4JellyfinConfigPage">
+
+                    <div class="sectionTitleContainer flex align-items-center">
+                        <h2 class="sectionTitle">Trailers4Jellyfin</h2>
+                        <a is="emby-linkbutton" class="raised button-alt headerHelpButton emby-button"
+                           target="_blank" href="https://github.com/radie/Trailers4Jellyfin#readme">Help</a>
+                    </div>
+
+                    <div class="verticalSection">
+                        <p>
+                            Automatically downloads movie trailers from TMDB/YouTube and saves them locally so
+                            Jellyfin Cinema Mode can play them before your movies. Trailers are downloaded by a
+                            scheduled task that runs daily (configurable via <strong>Scheduled Tasks</strong> in the
+                            dashboard).
+                        </p>
+                        <p>
+                            A free TMDB API key is required.
+                            <a href="https://www.themoviedb.org/settings/api" target="_blank">Get one here →</a>
+                        </p>
+                    </div>
+
+                    <!-- TMDB -->
+                    <fieldset class="verticalSection verticalSection-extrabottompadding">
+                        <legend><h3 class="sectionTitle">TMDB Settings</h3></legend>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="tmdb-api-key">TMDB API Key</label>
+                            <input type="password" id="tmdb-api-key" is="emby-input" autocomplete="off" />
+                            <div class="fieldDescription">
+                                Your TMDB v3 API key. Found at
+                                <a href="https://www.themoviedb.org/settings/api" target="_blank">themoviedb.org/settings/api</a>.
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- Download Location -->
+                    <fieldset class="verticalSection verticalSection-extrabottompadding">
+                        <legend><h3 class="sectionTitle">Download Location</h3></legend>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="place-alongside-movies" />
+                                <span>Place trailers alongside movies</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                When enabled, each trailer is saved into a <code>trailers/</code> subfolder next to
+                                the movie file (e.g. <code>The Matrix (1999)/trailers/The Matrix-trailer.mp4</code>).
+                                Jellyfin automatically picks these up as Local Trailers, which works seamlessly with
+                                Cinema Mode. <strong>Recommended.</strong>
+                            </div>
+                        </div>
+
+                        <div id="download-folder-container" class="inputContainer" style="display:none">
+                            <label class="inputLabel inputLabelUnfocused" for="download-folder">Download Folder</label>
+                            <input type="text" id="download-folder" is="emby-input"
+                                   placeholder="/path/to/trailers" />
+                            <div class="fieldDescription">
+                                Folder where trailers will be saved when not placing them alongside movies.
+                                You can point a Jellyfin Movies library at this folder and use it as a
+                                Pre-Roll library in Cinema Mode.
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- Download Options -->
+                    <fieldset class="verticalSection verticalSection-extrabottompadding">
+                        <legend><h3 class="sectionTitle">Download Options</h3></legend>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="max-trailers">Max Trailers per Movie</label>
+                            <input type="number" id="max-trailers" is="emby-input" min="1" max="5" />
+                            <div class="fieldDescription">
+                                How many trailers to download per movie. Default: 1.
+                            </div>
+                        </div>
+
+                        <div class="selectContainer">
+                            <label class="selectLabel" for="video-quality">Preferred Video Quality</label>
+                            <select is="emby-select" id="video-quality" class="emby-select-withcolor emby-select">
+                                <option value="720">720p (default, built-in downloader)</option>
+                                <option value="480">480p</option>
+                                <option value="1080">1080p (requires yt-dlp + ffmpeg)</option>
+                            </select>
+                            <div class="fieldDescription">
+                                The built-in downloader (YoutubeExplode) supports up to 720p without any extra
+                                tools. For 1080p, configure yt-dlp below.
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="skip-existing" />
+                                <span>Skip movies that already have trailers</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Skips any movie that already has a local trailer in Jellyfin or in its
+                                <code>trailers/</code> folder. Enabled by default.
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- Advanced -->
+                    <fieldset class="verticalSection verticalSection-extrabottompadding">
+                        <legend><h3 class="sectionTitle">Advanced</h3></legend>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="ytdlp-path">yt-dlp Path (optional)</label>
+                            <input type="text" id="ytdlp-path" is="emby-input"
+                                   placeholder="/usr/local/bin/yt-dlp" />
+                            <div class="fieldDescription">
+                                Full path to the <a href="https://github.com/yt-dlp/yt-dlp" target="_blank">yt-dlp</a>
+                                executable. When set, yt-dlp is used instead of the built-in downloader, enabling
+                                1080p quality. Requires <strong>ffmpeg</strong> on your system PATH for audio/video
+                                merging. Leave blank to use the built-in downloader (720p max, no extra tools).
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <br />
+                    <button is="emby-button" type="submit" class="raised button-submit block">
+                        <span>${Save}</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            var pluginId = "7635bf62-6b22-4c4c-9bc7-5d55f0c2bff0";
+
+            function toggleDownloadFolder() {
+                var checked = document.getElementById('place-alongside-movies').checked;
+                document.getElementById('download-folder-container').style.display = checked ? 'none' : '';
+            }
+
+            document.getElementById('place-alongside-movies').addEventListener('change', toggleDownloadFolder);
+
+            $('.trailers4JellyfinConfigPage').on('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    document.getElementById('tmdb-api-key').value = config.TmdbApiKey || '';
+                    document.getElementById('place-alongside-movies').checked = config.PlaceAlongsideMovies !== false;
+                    document.getElementById('download-folder').value = config.DownloadFolder || '';
+                    document.getElementById('max-trailers').value = config.MaxTrailersPerMovie || 1;
+                    document.getElementById('video-quality').value = String(config.PreferredVideoHeight || 720);
+                    document.getElementById('skip-existing').checked = config.SkipMoviesWithExistingTrailers !== false;
+                    document.getElementById('ytdlp-path').value = config.YtDlpPath || '';
+                    toggleDownloadFolder();
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+
+            $('.trailers4JellyfinConfigPage').on('submit', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    config.TmdbApiKey = document.getElementById('tmdb-api-key').value;
+                    config.PlaceAlongsideMovies = document.getElementById('place-alongside-movies').checked;
+                    config.DownloadFolder = document.getElementById('download-folder').value;
+                    config.MaxTrailersPerMovie = parseInt(document.getElementById('max-trailers').value, 10) || 1;
+                    config.PreferredVideoHeight = parseInt(document.getElementById('video-quality').value, 10) || 720;
+                    config.SkipMoviesWithExistingTrailers = document.getElementById('skip-existing').checked;
+                    config.YtDlpPath = document.getElementById('ytdlp-path').value;
+                    ApiClient.updatePluginConfiguration(pluginId, config)
+                        .then(Dashboard.processPluginConfigurationUpdateResult);
+                });
+                return false;
+            });
+        </script>
+    </div>
+</body>
+</html>
