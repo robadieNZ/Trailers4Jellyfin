@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
@@ -74,7 +75,6 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
 
             progress.Report(5);
 
-            // Build a set of TMDB IDs already in the Jellyfin library so we can skip them.
             var libraryTmdbIds = config.SkipMoviesInLibrary
                 ? GetLibraryTmdbIds()
                 : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -83,14 +83,15 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
 
             progress.Report(10);
 
-            // Fetch candidate movies from the configured TMDB sources.
             _logger.LogInformation("|Trailers4Jellyfin| Fetching candidates from TMDB...");
             var candidates = await _tmdbService.GetCandidateMoviesAsync(config, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("|Trailers4Jellyfin| Found {Count} candidate movies across all sources", candidates.Count);
 
+            // Fetch genre ID→name map once for sidecar metadata.
+            var genreMap = await _tmdbService.GetGenreMapAsync(config.TmdbApiKey, cancellationToken).ConfigureAwait(false);
+
             progress.Report(20);
 
-            // Filter: skip movies already in the library.
             if (config.SkipMoviesInLibrary)
             {
                 candidates = candidates
@@ -106,7 +107,6 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
                 return;
             }
 
-            // Download trailers until we hit the configured limit.
             int downloaded = 0;
             int processed = 0;
 
@@ -123,14 +123,12 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
 
                 var outputPath = BuildOutputPath(movie.Title, movie.Year, config);
 
-                // Skip if file already exists.
                 if (config.SkipAlreadyDownloaded && File.Exists(outputPath))
                 {
                     _logger.LogDebug("|Trailers4Jellyfin| Already downloaded: {Path}", outputPath);
                     continue;
                 }
 
-                // Fetch trailer list from TMDB for this movie.
                 var trailers = await _tmdbService.GetTrailersAsync(
                     movie.Id.ToString(), config.TmdbApiKey, cancellationToken).ConfigureAwait(false);
 
@@ -156,6 +154,8 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
                     _logger.LogInformation(
                         "|Trailers4Jellyfin| [{Done}/{Max}] Saved trailer for '{Movie}' → {Path}",
                         downloaded, config.MaxTrailersToDownload, movie.Title, outputPath);
+
+                    await SaveSidecarAsync(outputPath, movie.GenreIds, genreMap, cancellationToken).ConfigureAwait(false);
                 }
             }
 
@@ -163,9 +163,26 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
             progress.Report(100);
         }
 
-        /// <summary>
-        /// Returns the set of TMDB IDs for all movies currently in the Jellyfin library.
-        /// </summary>
+        private async Task SaveSidecarAsync(
+            string trailerPath,
+            IReadOnlyList<int> genreIds,
+            Dictionary<int, string> genreMap,
+            CancellationToken ct)
+        {
+            if (genreIds == null || genreIds.Count == 0) return;
+
+            var genres = genreIds
+                .Select(id => genreMap.TryGetValue(id, out var name) ? name : null)
+                .Where(n => !string.IsNullOrEmpty(n))
+                .ToList();
+
+            if (genres.Count == 0) return;
+
+            var sidecarPath = Path.ChangeExtension(trailerPath, ".json");
+            var json = JsonSerializer.Serialize(new { genres });
+            await File.WriteAllTextAsync(sidecarPath, json, ct).ConfigureAwait(false);
+        }
+
         private HashSet<string> GetLibraryTmdbIds()
         {
             var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -184,10 +201,6 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
             return ids;
         }
 
-        /// <summary>
-        /// Builds the output file path in the download folder.
-        /// Format: {DownloadFolder}/{Safe Title} ({Year})-trailer.mp4
-        /// </summary>
         private string BuildOutputPath(string title, int? year, Configuration.PluginConfiguration config)
         {
             var safeName = string.Concat(title.Split(Path.GetInvalidFileNameChars())).Trim();

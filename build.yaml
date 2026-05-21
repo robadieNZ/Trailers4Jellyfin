@@ -1,5 +1,5 @@
 ---
-version: 1.0.5.0
+version: 1.0.6.0
 name: Trailers4Jellyfin
 guid: 7635bf62-6b22-4c4c-9bc7-5d55f0c2bff0
 description: >
@@ -11,8 +11,10 @@ category: General
 owner: robadieNZ
 targetAbi: 10.11.0.0
 changelog:
-  - Force IPv4 for all HTTP calls (TMDB + YouTube) to eliminate ~80s IPv6 timeout
-  - Support both JWT Read Access Token (Bearer) and v3 API Key (?api_key=) for TMDB
+  - Add built-in Cinema Mode: plays N trailers before each movie via IIntroProvider (no separate plugin needed)
+  - Genre-matching selects trailers that fit the movie's genre (horror→horror, family→family, etc.)
+  - Download task saves genre sidecar JSON alongside each trailer for matching
+  - New config options: Enable Cinema Mode, Trailers per movie, Match trailers to genre
 
 dotnetProjects:
   - name: Jellyfin.Plugin.Trailers4Jellyfin

@@ -18,9 +18,8 @@
 
                     <div class="verticalSection">
                         <p>
-                            Automatically downloads trailers for <strong>upcoming and recently released movies not in your library</strong>
-                            from TMDB/YouTube. Save them to a folder, then point Cinema Mode's Pre-Roll library at that folder
-                            to get a real cinema experience — random trailers for films you haven't seen before your movie starts.
+                            Downloads trailers for <strong>upcoming and recently released movies not in your library</strong>
+                            from TMDB/YouTube, then plays them before your movies — no Cinema Mode plugin needed.
                         </p>
                         <p style="margin-top:0">
                             A free TMDB API key is required.
@@ -35,8 +34,48 @@
                             <label class="inputLabel inputLabelUnfocused" for="tmdb-api-key">TMDB API Key</label>
                             <input type="password" id="tmdb-api-key" is="emby-input" autocomplete="off" />
                             <div class="fieldDescription">
-                                Your TMDB v3 API key from
+                                Your TMDB Read Access Token (JWT) or v3 API key from
                                 <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">themoviedb.org/settings/api</a>.
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- Cinema Mode -->
+                    <fieldset class="verticalSection verticalSection-extrabottompadding">
+                        <legend><h3 class="sectionTitle">Cinema Mode</h3></legend>
+                        <p class="fieldDescription">
+                            When enabled, this plugin acts as a trailer provider. Jellyfin will play trailers
+                            from your download folder before each movie — no separate Cinema Mode plugin required.
+                            <strong>You must also enable Cinema Mode in each user's playback settings.</strong>
+                        </p>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="enable-cinema-mode" />
+                                <span>Enable Cinema Mode (play trailers before movies)</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Registers this plugin as a trailer intro provider with Jellyfin.
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="num-trailers">Trailers per movie</label>
+                            <input type="number" id="num-trailers" is="emby-input" min="1" max="10" />
+                            <div class="fieldDescription">
+                                How many trailers to play before each movie starts. Default: 2.
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="enable-genre-matching" />
+                                <span>Match trailers to movie genre</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Prefer trailers whose genre overlaps with the movie you're about to watch
+                                (e.g. horror trailers before horror films, family trailers before animated movies).
+                                Falls back to random trailers if not enough genre matches are found.
                             </div>
                         </div>
                     </fieldset>
@@ -116,9 +155,8 @@
                             <label class="inputLabel inputLabelUnfocused" for="download-folder">Download Folder</label>
                             <input type="text" id="download-folder" is="emby-input" placeholder="/media/trailers" />
                             <div class="fieldDescription">
-                                Where trailers are saved. After the task runs, create (or refresh) a Jellyfin
-                                <strong>Movies</strong> library pointing at this folder, then set it as the
-                                <strong>Trailer Pre-Roll Library</strong> in the Cinema Mode plugin settings.
+                                Where trailers are saved. The Cinema Mode intro provider reads trailers directly
+                                from this folder — no Jellyfin library needed for playback.
                             </div>
                         </div>
 
@@ -134,8 +172,7 @@
                             <label class="inputLabel inputLabelUnfocused" for="max-pages">Pages per source</label>
                             <input type="number" id="max-pages" is="emby-input" min="1" max="10" />
                             <div class="fieldDescription">
-                                How many pages to fetch from each TMDB source (20 movies per page). Increase if
-                                you have many movies already in your library and need more candidates. Default: 3.
+                                How many pages to fetch from each TMDB source (20 movies per page). Default: 3.
                             </div>
                         </div>
 
@@ -154,7 +191,7 @@
                                 <span>Skip movies already in my Jellyfin library</span>
                             </label>
                             <div class="fieldDescription checkboxFieldDescription">
-                                Trailers for movies you already own won't be downloaded. Enabled by default.
+                                Trailers for movies you already own won't be downloaded.
                             </div>
                         </div>
 
@@ -164,7 +201,7 @@
                                 <span>Skip trailers already downloaded</span>
                             </label>
                             <div class="fieldDescription checkboxFieldDescription">
-                                If a file already exists for a movie, don't re-download it. Enabled by default.
+                                If a file already exists for a movie, don't re-download it.
                             </div>
                         </div>
                     </fieldset>
@@ -197,19 +234,22 @@
             $('.trailers4JellyfinConfigPage').on('pageshow', function () {
                 Dashboard.showLoadingMsg();
                 ApiClient.getPluginConfiguration(pluginId).then(function (config) {
-                    document.getElementById('tmdb-api-key').value        = config.TmdbApiKey || '';
-                    document.getElementById('source-now-playing').checked = config.SourceNowPlaying !== false;
-                    document.getElementById('source-upcoming').checked    = config.SourceUpcoming !== false;
-                    document.getElementById('source-popular').checked     = !!config.SourcePopular;
-                    document.getElementById('source-top-rated').checked   = !!config.SourceTopRated;
-                    document.getElementById('date-range').value           = String(config.ReleaseDateRangeMonths ?? 6);
-                    document.getElementById('download-folder').value      = config.DownloadFolder || '';
-                    document.getElementById('max-trailers').value         = config.MaxTrailersToDownload ?? 20;
-                    document.getElementById('max-pages').value            = config.MaxPagesPerSource ?? 3;
-                    document.getElementById('video-quality').value        = String(config.PreferredVideoHeight ?? 720);
-                    document.getElementById('skip-library').checked       = config.SkipMoviesInLibrary !== false;
-                    document.getElementById('skip-downloaded').checked    = config.SkipAlreadyDownloaded !== false;
-                    document.getElementById('ytdlp-path').value           = config.YtDlpPath || '';
+                    document.getElementById('tmdb-api-key').value           = config.TmdbApiKey || '';
+                    document.getElementById('enable-cinema-mode').checked   = config.EnableCinemaMode !== false;
+                    document.getElementById('num-trailers').value           = config.NumberOfTrailers ?? 2;
+                    document.getElementById('enable-genre-matching').checked = config.EnableGenreMatching !== false;
+                    document.getElementById('source-now-playing').checked   = config.SourceNowPlaying !== false;
+                    document.getElementById('source-upcoming').checked      = config.SourceUpcoming !== false;
+                    document.getElementById('source-popular').checked       = !!config.SourcePopular;
+                    document.getElementById('source-top-rated').checked     = !!config.SourceTopRated;
+                    document.getElementById('date-range').value             = String(config.ReleaseDateRangeMonths ?? 6);
+                    document.getElementById('download-folder').value        = config.DownloadFolder || '';
+                    document.getElementById('max-trailers').value           = config.MaxTrailersToDownload ?? 20;
+                    document.getElementById('max-pages').value              = config.MaxPagesPerSource ?? 3;
+                    document.getElementById('video-quality').value          = String(config.PreferredVideoHeight ?? 720);
+                    document.getElementById('skip-library').checked         = config.SkipMoviesInLibrary !== false;
+                    document.getElementById('skip-downloaded').checked      = config.SkipAlreadyDownloaded !== false;
+                    document.getElementById('ytdlp-path').value             = config.YtDlpPath || '';
                     Dashboard.hideLoadingMsg();
                 });
             });
@@ -217,19 +257,22 @@
             $('.trailers4JellyfinConfigPage').on('submit', function () {
                 Dashboard.showLoadingMsg();
                 ApiClient.getPluginConfiguration(pluginId).then(function (config) {
-                    config.TmdbApiKey              = document.getElementById('tmdb-api-key').value;
-                    config.SourceNowPlaying        = document.getElementById('source-now-playing').checked;
-                    config.SourceUpcoming          = document.getElementById('source-upcoming').checked;
-                    config.SourcePopular           = document.getElementById('source-popular').checked;
-                    config.SourceTopRated          = document.getElementById('source-top-rated').checked;
-                    config.ReleaseDateRangeMonths  = parseInt(document.getElementById('date-range').value, 10);
-                    config.DownloadFolder          = document.getElementById('download-folder').value;
-                    config.MaxTrailersToDownload   = parseInt(document.getElementById('max-trailers').value, 10) || 20;
-                    config.MaxPagesPerSource       = parseInt(document.getElementById('max-pages').value, 10) || 3;
-                    config.PreferredVideoHeight    = parseInt(document.getElementById('video-quality').value, 10) || 720;
-                    config.SkipMoviesInLibrary     = document.getElementById('skip-library').checked;
-                    config.SkipAlreadyDownloaded   = document.getElementById('skip-downloaded').checked;
-                    config.YtDlpPath               = document.getElementById('ytdlp-path').value;
+                    config.TmdbApiKey             = document.getElementById('tmdb-api-key').value;
+                    config.EnableCinemaMode       = document.getElementById('enable-cinema-mode').checked;
+                    config.NumberOfTrailers       = parseInt(document.getElementById('num-trailers').value, 10) || 2;
+                    config.EnableGenreMatching    = document.getElementById('enable-genre-matching').checked;
+                    config.SourceNowPlaying       = document.getElementById('source-now-playing').checked;
+                    config.SourceUpcoming         = document.getElementById('source-upcoming').checked;
+                    config.SourcePopular          = document.getElementById('source-popular').checked;
+                    config.SourceTopRated         = document.getElementById('source-top-rated').checked;
+                    config.ReleaseDateRangeMonths = parseInt(document.getElementById('date-range').value, 10);
+                    config.DownloadFolder         = document.getElementById('download-folder').value;
+                    config.MaxTrailersToDownload  = parseInt(document.getElementById('max-trailers').value, 10) || 20;
+                    config.MaxPagesPerSource      = parseInt(document.getElementById('max-pages').value, 10) || 3;
+                    config.PreferredVideoHeight   = parseInt(document.getElementById('video-quality').value, 10) || 720;
+                    config.SkipMoviesInLibrary    = document.getElementById('skip-library').checked;
+                    config.SkipAlreadyDownloaded  = document.getElementById('skip-downloaded').checked;
+                    config.YtDlpPath              = document.getElementById('ytdlp-path').value;
                     ApiClient.updatePluginConfiguration(pluginId, config)
                         .then(Dashboard.processPluginConfigurationUpdateResult);
                 });

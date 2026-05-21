@@ -14,7 +14,7 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
 {
     public record TmdbVideo(string Key, string Name, bool Official, int Size);
 
-    public record TmdbMovieResult(int Id, string Title, string ReleaseDate)
+    public record TmdbMovieResult(int Id, string Title, string ReleaseDate, IReadOnlyList<int> GenreIds)
     {
         public int? Year => DateTime.TryParse(ReleaseDate, out var d) ? d.Year : (int?)null;
     }
@@ -66,6 +66,33 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                 var uri = request.RequestUri!.ToString();
                 var separator = uri.Contains('?') ? "&" : "?";
                 request.RequestUri = new Uri($"{uri}{separator}api_key={apiKey}");
+            }
+        }
+
+        /// <summary>
+        /// Returns a map of TMDB genre ID → genre name (e.g. 28 → "Action").
+        /// </summary>
+        public async Task<Dictionary<int, string>> GetGenreMapAsync(string apiKey, CancellationToken ct)
+        {
+            try
+            {
+                var url = $"{BaseUrl}/genre/movie/list?language=en-US";
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                ApplyAuth(request, apiKey);
+                using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+                var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                using var doc = JsonDocument.Parse(json);
+                var map = new Dictionary<int, string>();
+                foreach (var genre in doc.RootElement.GetProperty("genres").EnumerateArray())
+                    map[genre.GetProperty("id").GetInt32()] = genre.GetProperty("name").GetString() ?? string.Empty;
+                return map;
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "|Trailers4Jellyfin| Failed to fetch genre map from TMDB");
+                return new Dictionary<int, string>();
             }
         }
 
@@ -137,13 +164,20 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                         var title = movie.TryGetProperty("title", out var t) ? t.GetString() ?? string.Empty : string.Empty;
                         var id = movie.GetProperty("id").GetInt32();
 
+                        var genreIds = new List<int>();
+                        if (movie.TryGetProperty("genre_ids", out var gids))
+                        {
+                            foreach (var gid in gids.EnumerateArray())
+                                genreIds.Add(gid.GetInt32());
+                        }
+
                         if (releasedAfter.HasValue && DateTime.TryParse(releaseDate, out var parsed))
                         {
                             if (parsed < releasedAfter.Value) continue;
                         }
 
                         anyInRange = true;
-                        results.Add(new TmdbMovieResult(id, title, releaseDate));
+                        results.Add(new TmdbMovieResult(id, title, releaseDate, genreIds));
                     }
 
                     if (page >= totalPages || (releasedAfter.HasValue && !anyInRange))
