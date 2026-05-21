@@ -1,5 +1,5 @@
 ---
-version: 1.0.4.0
+version: 1.0.5.0
 name: Trailers4Jellyfin
 guid: 7635bf62-6b22-4c4c-9bc7-5d55f0c2bff0
 description: >
@@ -11,8 +11,8 @@ category: General
 owner: robadieNZ
 targetAbi: 10.11.0.0
 changelog:
-  - Force IPv4 for TMDB API calls to avoid ~80s IPv6 timeout on systems where IPv6 is unreachable
-  - Support both JWT Read Access Token (Bearer) and v3 API Key (?api_key=) automatically
+  - Force IPv4 for all HTTP calls (TMDB + YouTube) to eliminate ~80s IPv6 timeout
+  - Support both JWT Read Access Token (Bearer) and v3 API Key (?api_key=) for TMDB
 
 dotnetProjects:
   - name: Jellyfin.Plugin.Trailers4Jellyfin

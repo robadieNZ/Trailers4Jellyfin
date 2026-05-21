@@ -2,6 +2,9 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -10,14 +13,39 @@ using YoutubeExplode.Videos.Streams;
 
 namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
 {
-    public class TrailerDownloadService
+    public class TrailerDownloadService : IDisposable
     {
         private readonly ILogger<TrailerDownloadService> _logger;
+        private readonly HttpClient _httpClient;
 
         public TrailerDownloadService(ILogger<TrailerDownloadService> logger)
         {
             _logger = logger;
+
+            // Force IPv4 to avoid ~80s delay when IPv6 is unreachable (Happy Eyeballs fallback).
+            var handler = new SocketsHttpHandler
+            {
+                ConnectCallback = async (ctx, ct) =>
+                {
+                    var entry = await Dns.GetHostEntryAsync(ctx.DnsEndPoint.Host, AddressFamily.InterNetwork, ct).ConfigureAwait(false);
+                    var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    socket.NoDelay = true;
+                    try
+                    {
+                        await socket.ConnectAsync(entry.AddressList[0], ctx.DnsEndPoint.Port, ct).ConfigureAwait(false);
+                        return new NetworkStream(socket, ownsSocket: true);
+                    }
+                    catch
+                    {
+                        socket.Dispose();
+                        throw;
+                    }
+                }
+            };
+            _httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10) };
         }
+
+        public void Dispose() => _httpClient.Dispose();
 
         /// <summary>
         /// Downloads a YouTube video by key to outputPath.
@@ -51,7 +79,7 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
         {
             try
             {
-                var youtube = new YoutubeClient();
+                var youtube = new YoutubeClient(_httpClient);
                 var manifest = await youtube.Videos.Streams
                     .GetManifestAsync($"https://www.youtube.com/watch?v={key}", ct)
                     .ConfigureAwait(false);
