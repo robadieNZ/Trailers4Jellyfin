@@ -230,7 +230,7 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
                 foreach (var file in files.ToList())
                 {
                     if (!trailerItemsByPath.TryGetValue(file, out var item)) continue;
-                    bool watched = users.Any(u => _userDataManager.GetUserData(u.Id, item).Played);
+                    bool watched = users.Any(u => _userDataManager.GetUserData(u, item).Played);
                     if (!watched) continue;
 
                     _logger.LogInformation("|Trailers4Jellyfin| Deleting watched trailer: {File}", Path.GetFileName(file));
