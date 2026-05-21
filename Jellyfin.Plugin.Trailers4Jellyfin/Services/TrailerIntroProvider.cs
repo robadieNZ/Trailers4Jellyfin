@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Jellyfin.Data.Enums;
 using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -13,12 +14,14 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
 {
     public class TrailerIntroProvider : IIntroProvider
     {
+        private readonly ILibraryManager _libraryManager;
         private readonly ILogger<TrailerIntroProvider> _logger;
 
         public string Name => "Trailers4Jellyfin";
 
-        public TrailerIntroProvider(ILogger<TrailerIntroProvider> logger)
+        public TrailerIntroProvider(ILibraryManager libraryManager, ILogger<TrailerIntroProvider> logger)
         {
+            _libraryManager = libraryManager;
             _logger = logger;
         }
 
@@ -28,33 +31,44 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
             if (config == null || !config.EnableCinemaMode || config.NumberOfTrailers <= 0)
                 return Task.FromResult(Enumerable.Empty<IntroInfo>());
 
-            if (string.IsNullOrWhiteSpace(config.DownloadFolder) || !Directory.Exists(config.DownloadFolder))
+            if (string.IsNullOrWhiteSpace(config.DownloadFolder))
                 return Task.FromResult(Enumerable.Empty<IntroInfo>());
 
-            // Only inject before movies, not episodes or other content.
+            // Only inject before movies.
             if (item is not MediaBrowser.Controller.Entities.Movies.Movie)
                 return Task.FromResult(Enumerable.Empty<IntroInfo>());
 
-            var trailerFiles = Directory
-                .EnumerateFiles(config.DownloadFolder, "*-trailer.mp4", SearchOption.TopDirectoryOnly)
-                .Where(f => !Path.GetFileName(f).StartsWith("._", StringComparison.Ordinal))
+            // Find trailer items that Jellyfin has scanned from the download folder.
+            // The folder must be added as a Jellyfin library so items have a database ID.
+            var downloadFolder = config.DownloadFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var trailerItems = _libraryManager
+                .GetItemList(new InternalItemsQuery { IncludeItemTypes = new[] { BaseItemKind.Movie }, Recursive = true })
+                .Where(t =>
+                    t.Path != null
+                    && t.Path.StartsWith(downloadFolder, StringComparison.OrdinalIgnoreCase)
+                    && !Path.GetFileName(t.Path).StartsWith("._", StringComparison.Ordinal)
+                    && t.Path.EndsWith("-trailer.mp4", StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
-            if (trailerFiles.Count == 0)
+            if (trailerItems.Count == 0)
+            {
+                _logger.LogDebug(
+                    "|Trailers4Jellyfin| No trailer items found in Jellyfin library under '{Folder}'. " +
+                    "Add the download folder as a Jellyfin Movies library and run a library scan.",
+                    config.DownloadFolder);
                 return Task.FromResult(Enumerable.Empty<IntroInfo>());
+            }
 
-            List<string> selected;
+            List<BaseItem> selected;
 
             if (config.EnableGenreMatching && item.Genres != null && item.Genres.Length > 0)
             {
                 var movieGenres = new HashSet<string>(item.Genres, StringComparer.OrdinalIgnoreCase);
 
-                // Score each trailer by genre overlap with the movie being played.
-                var scored = trailerFiles
-                    .Select(path => (path, score: GetGenreOverlap(path, movieGenres)))
+                var scored = trailerItems
+                    .Select(t => (trailer: t, score: GetGenreScore(t.Path!, movieGenres)))
                     .ToList();
 
-                // Use genre-matched pool if we have enough matches; otherwise use all trailers.
                 var matched = scored.Where(x => x.score > 0).ToList();
                 var pool = matched.Count >= config.NumberOfTrailers ? matched : scored;
 
@@ -62,12 +76,12 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                     .OrderByDescending(x => x.score)
                     .ThenBy(_ => Guid.NewGuid())
                     .Take(config.NumberOfTrailers)
-                    .Select(x => x.path)
+                    .Select(x => x.trailer)
                     .ToList();
             }
             else
             {
-                selected = trailerFiles
+                selected = trailerItems
                     .OrderBy(_ => Guid.NewGuid())
                     .Take(config.NumberOfTrailers)
                     .ToList();
@@ -77,10 +91,12 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                 "|Trailers4Jellyfin| Queuing {Count} intro trailer(s) before '{Movie}'",
                 selected.Count, item.Name);
 
-            return Task.FromResult(selected.Select(path => new IntroInfo { Path = path }));
+            return Task.FromResult(selected.Select(t => new IntroInfo { ItemId = t.Id }));
         }
 
-        private static int GetGenreOverlap(string trailerPath, HashSet<string> movieGenres)
+        // Score is the number of genres the trailer shares with the movie being played.
+        // Uses the sidecar JSON saved alongside each trailer file during download.
+        private static int GetGenreScore(string trailerPath, HashSet<string> movieGenres)
         {
             var sidecarPath = Path.ChangeExtension(trailerPath, ".json");
             if (!File.Exists(sidecarPath)) return 0;
