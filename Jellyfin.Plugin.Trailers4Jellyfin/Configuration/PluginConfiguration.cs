@@ -31,13 +31,16 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Configuration
 
         // ── Cinema Mode ───────────────────────────────────────────────────────
 
-        /// <summary>Enable this plugin's IIntroProvider to serve trailers before movies.</summary>
         public bool EnableCinemaMode { get; set; } = true;
-
-        /// <summary>How many trailers to play before each movie. Default 2.</summary>
         public int NumberOfTrailers { get; set; } = 2;
-
-        /// <summary>Prefer trailers whose genres match the movie being played.</summary>
         public bool EnableGenreMatching { get; set; } = true;
+
+        // ── Trailer Rotation ──────────────────────────────────────────────────
+
+        /// <summary>Maximum trailers to keep on disk. Oldest are deleted first when exceeded. 0 = unlimited.</summary>
+        public int MaxTotalTrailers { get; set; } = 50;
+
+        /// <summary>Delete trailers that any user has already watched, making room for fresh ones.</summary>
+        public bool DeleteWatchedTrailers { get; set; } = false;
     }
 }

@@ -209,6 +209,36 @@
                         </div>
                     </fieldset>
 
+                    <!-- Trailer Rotation -->
+                    <fieldset class="verticalSection verticalSection-extrabottompadding">
+                        <legend><h3 class="sectionTitle">Trailer Rotation</h3></legend>
+                        <p class="fieldDescription">
+                            Keep your trailer library fresh by automatically removing old or watched trailers
+                            each time the download task runs.
+                        </p>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="max-total-trailers">Max trailers to keep</label>
+                            <input type="number" id="max-total-trailers" is="emby-input" min="0" max="500" />
+                            <div class="fieldDescription">
+                                Maximum number of trailers to keep on disk at once. When this limit is exceeded,
+                                the oldest trailers are deleted first to make room for new downloads. Set to 0 for unlimited.
+                                Default: 50.
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="delete-watched" />
+                                <span>Delete watched trailers</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Trailers that any user has already watched will be deleted at the start of each
+                                download run, keeping the pool fresh.
+                            </div>
+                        </div>
+                    </fieldset>
+
                     <!-- Advanced -->
                     <fieldset class="verticalSection verticalSection-extrabottompadding">
                         <legend><h3 class="sectionTitle">Advanced</h3></legend>
@@ -253,6 +283,8 @@
                     document.getElementById('skip-library').checked         = config.SkipMoviesInLibrary !== false;
                     document.getElementById('skip-downloaded').checked      = config.SkipAlreadyDownloaded !== false;
                     document.getElementById('ytdlp-path').value             = config.YtDlpPath || '';
+                    document.getElementById('max-total-trailers').value     = config.MaxTotalTrailers ?? 50;
+                    document.getElementById('delete-watched').checked       = !!config.DeleteWatchedTrailers;
                     Dashboard.hideLoadingMsg();
                 });
             });
@@ -276,6 +308,8 @@
                     config.SkipMoviesInLibrary    = document.getElementById('skip-library').checked;
                     config.SkipAlreadyDownloaded  = document.getElementById('skip-downloaded').checked;
                     config.YtDlpPath              = document.getElementById('ytdlp-path').value;
+                    config.MaxTotalTrailers       = parseInt(document.getElementById('max-total-trailers').value, 10) ?? 50;
+                    config.DeleteWatchedTrailers  = document.getElementById('delete-watched').checked;
                     ApiClient.updatePluginConfiguration(pluginId, config)
                         .then(Dashboard.processPluginConfigurationUpdateResult);
                 });

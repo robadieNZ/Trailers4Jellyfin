@@ -20,6 +20,8 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
     {
         private readonly ILogger<DownloadTrailersTask> _logger;
         private readonly ILibraryManager _libraryManager;
+        private readonly IUserManager _userManager;
+        private readonly IUserDataManager _userDataManager;
         private readonly TmdbService _tmdbService;
         private readonly TrailerDownloadService _downloadService;
 
@@ -31,11 +33,15 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
         public DownloadTrailersTask(
             ILogger<DownloadTrailersTask> logger,
             ILibraryManager libraryManager,
+            IUserManager userManager,
+            IUserDataManager userDataManager,
             TmdbService tmdbService,
             TrailerDownloadService downloadService)
         {
             _logger = logger;
             _libraryManager = libraryManager;
+            _userManager = userManager;
+            _userDataManager = userDataManager;
             _tmdbService = tmdbService;
             _downloadService = downloadService;
         }
@@ -72,6 +78,8 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
             }
 
             Directory.CreateDirectory(config.DownloadFolder);
+
+            CleanupTrailers(config);
 
             progress.Report(5);
 
@@ -199,6 +207,56 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
             }
 
             return ids;
+        }
+
+        private void CleanupTrailers(Configuration.PluginConfiguration config)
+        {
+            var downloadFolder = config.DownloadFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            // Build a lookup of library items by path for watched-status checks.
+            var trailerItemsByPath = _libraryManager
+                .GetItemList(new InternalItemsQuery { IncludeItemTypes = new[] { BaseItemKind.Movie }, Recursive = true })
+                .Where(t => t.Path != null && t.Path.StartsWith(downloadFolder, StringComparison.OrdinalIgnoreCase))
+                .ToDictionary(t => t.Path!, StringComparer.OrdinalIgnoreCase);
+
+            var files = Directory.GetFiles(config.DownloadFolder, "*.mp4")
+                .Where(f => !Path.GetFileName(f).StartsWith("._", StringComparison.Ordinal))
+                .ToList();
+
+            // Delete watched trailers first.
+            if (config.DeleteWatchedTrailers)
+            {
+                var users = _userManager.Users.ToList();
+                foreach (var file in files.ToList())
+                {
+                    if (!trailerItemsByPath.TryGetValue(file, out var item)) continue;
+                    bool watched = users.Any(u => _userDataManager.GetUserData(u.Id, item).Played);
+                    if (!watched) continue;
+
+                    _logger.LogInformation("|Trailers4Jellyfin| Deleting watched trailer: {File}", Path.GetFileName(file));
+                    File.Delete(file);
+                    var sidecar = Path.ChangeExtension(file, ".json");
+                    if (File.Exists(sidecar)) File.Delete(sidecar);
+                    files.Remove(file);
+                }
+            }
+
+            // Delete oldest trailers when over the cap.
+            if (config.MaxTotalTrailers > 0 && files.Count > config.MaxTotalTrailers)
+            {
+                var toDelete = files
+                    .OrderBy(File.GetCreationTime)
+                    .Take(files.Count - config.MaxTotalTrailers)
+                    .ToList();
+
+                foreach (var file in toDelete)
+                {
+                    _logger.LogInformation("|Trailers4Jellyfin| Deleting oldest trailer to stay under cap: {File}", Path.GetFileName(file));
+                    File.Delete(file);
+                    var sidecar = Path.ChangeExtension(file, ".json");
+                    if (File.Exists(sidecar)) File.Delete(sidecar);
+                }
+            }
         }
 
         private string BuildOutputPath(string title, int? year, Configuration.PluginConfiguration config)
