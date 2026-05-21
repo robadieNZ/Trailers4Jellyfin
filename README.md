@@ -65,7 +65,7 @@ The built-in downloader uses [YoutubeExplode](https://github.com/Tyrrrz/YoutubeE
 
 ## Using with Cinema Mode
 
-This plugin works with the [Cinema Mode plugin](https://github.com/CherryFloors/jellyfin-plugin-cinemamode) as well as Jellyfin's built-in Cinema Mode setting.
+This plugin works with Jellyfin's built-in Cinema Mode setting.
 
 - **Alongside movies mode**: Trailers are saved as Local Trailers. Cinema Mode picks them up automatically via Jellyfin's trailer selection.
 - **Dedicated folder mode**: Create a Jellyfin Movies library pointing at the download folder, then set it as the Trailer Pre-Roll Library in the Cinema Mode plugin config.
@@ -73,7 +73,7 @@ This plugin works with the [Cinema Mode plugin](https://github.com/CherryFloors/
 ## Building from source
 
 ```sh
-git clone https://github.com/radie/Trailers4Jellyfin
+git clone https://github.com/robadieNZ/Trailers4Jellyfin
 cd Trailers4Jellyfin
 dotnet publish --configuration Release --output bin
 ```
