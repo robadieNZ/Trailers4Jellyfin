@@ -1,5 +1,5 @@
 ---
-version: 1.0.11.0
+version: 1.0.12.0
 name: Trailers4Jellyfin
 guid: 7635bf62-6b22-4c4c-9bc7-5d55f0c2bff0
 description: >
@@ -11,7 +11,7 @@ category: General
 owner: robadieNZ
 targetAbi: 10.11.0.0
 changelog:
-  - Add language filter: choose which trailer languages to download via checkboxes (English, Spanish, French, German, and 16 more)
+  - Add age rating filter: trailers are never shown before a movie if their rating exceeds the movie's rating (e.g. no R-rated trailers before a PG film). Supports MPAA, BBFC, US TV, and common European ratings.
 
 dotnetProjects:
   - name: Jellyfin.Plugin.Trailers4Jellyfin

@@ -59,6 +59,19 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                 return Task.FromResult(Enumerable.Empty<IntroInfo>());
             }
 
+            // Filter trailers to those rated equal to or lower than the movie being played.
+            if (!string.IsNullOrWhiteSpace(item.OfficialRating)
+                && RatingSeverity.TryGetValue(item.OfficialRating, out var movieSeverity))
+            {
+                var filtered = trailerItems.Where(t => IsRatingAppropriate(t, movieSeverity)).ToList();
+                if (filtered.Count > 0)
+                    trailerItems = filtered;
+                else
+                    _logger.LogDebug(
+                        "|Trailers4Jellyfin| No trailers at or below rating '{Rating}' for '{Movie}', skipping rating filter",
+                        item.OfficialRating, item.Name);
+            }
+
             List<BaseItem> selected;
 
             if (config.EnableGenreMatching && item.Genres != null && item.Genres.Length > 0)
@@ -92,6 +105,27 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                 selected.Count, item.Name);
 
             return Task.FromResult(selected.Select(t => new IntroInfo { ItemId = t.Id }));
+        }
+
+        // Lower number = less mature. Trailers whose severity exceeds the movie's are excluded.
+        // Unknown or missing ratings are allowed through (benefit of the doubt).
+        private static readonly Dictionary<string, int> RatingSeverity = new(StringComparer.OrdinalIgnoreCase)
+        {
+            // MPAA
+            { "G",     1 }, { "PG",    2 }, { "PG-13", 3 }, { "R",     4 }, { "NC-17", 5 },
+            // US TV
+            { "TV-Y",  1 }, { "TV-G",  1 }, { "TV-Y7", 2 }, { "TV-PG", 2 }, { "TV-14", 3 }, { "TV-MA", 4 },
+            // BBFC (UK) — PG/12/18 already covered above with matching values
+            { "U",     1 }, { "12A",   3 }, { "15",    4 }, { "R18",   6 },
+            // European age labels
+            { "0",     1 }, { "6",     2 }, { "12",    3 }, { "16",    4 }, { "18",    5 },
+        };
+
+        private static bool IsRatingAppropriate(BaseItem trailer, int movieSeverity)
+        {
+            var rating = trailer.OfficialRating;
+            if (string.IsNullOrWhiteSpace(rating)) return true;
+            return !RatingSeverity.TryGetValue(rating, out var trailerSeverity) || trailerSeverity <= movieSeverity;
         }
 
         // Score is the number of genres the trailer shares with the movie being played.
