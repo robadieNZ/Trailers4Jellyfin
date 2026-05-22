@@ -91,6 +91,12 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
 
             progress.Report(10);
 
+            var allowedLanguages = string.IsNullOrWhiteSpace(config.AllowedLanguages)
+                ? null
+                : new HashSet<string>(
+                    config.AllowedLanguages.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+                    StringComparer.OrdinalIgnoreCase) as IReadOnlySet<string>;
+
             _logger.LogInformation("|Trailers4Jellyfin| Fetching candidates from TMDB...");
             var candidates = await _tmdbService.GetCandidateMoviesAsync(config, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("|Trailers4Jellyfin| Found {Count} candidate movies across all sources", candidates.Count);
@@ -138,7 +144,7 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
                 }
 
                 var trailers = await _tmdbService.GetTrailersAsync(
-                    movie.Id.ToString(), config.TmdbApiKey, cancellationToken).ConfigureAwait(false);
+                    movie.Id.ToString(), config.TmdbApiKey, allowedLanguages, cancellationToken).ConfigureAwait(false);
 
                 if (trailers.Count == 0)
                 {

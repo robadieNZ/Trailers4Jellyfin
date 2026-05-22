@@ -1,5 +1,5 @@
 ---
-version: 1.0.10.0
+version: 1.0.11.0
 name: Trailers4Jellyfin
 guid: 7635bf62-6b22-4c4c-9bc7-5d55f0c2bff0
 description: >
@@ -11,7 +11,7 @@ category: General
 owner: robadieNZ
 targetAbi: 10.11.0.0
 changelog:
-  - Add trailer rotation: delete watched trailers and enforce a max-trailers-on-disk cap, both run at the start of each download task
+  - Add language filter: choose which trailer languages to download via checkboxes (English, Spanish, French, German, and 16 more)
 
 dotnetProjects:
   - name: Jellyfin.Plugin.Trailers4Jellyfin

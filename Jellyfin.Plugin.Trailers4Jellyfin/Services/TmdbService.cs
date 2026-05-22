@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
 {
-    public record TmdbVideo(string Key, string Name, bool Official, int Size);
+    public record TmdbVideo(string Key, string Name, string Language, bool Official, int Size);
 
     public record TmdbMovieResult(int Id, string Title, string ReleaseDate, IReadOnlyList<int> GenreIds)
     {
@@ -221,11 +221,17 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
             return null;
         }
 
-        public async Task<List<TmdbVideo>> GetTrailersAsync(string tmdbId, string apiKey, CancellationToken ct)
+        public async Task<List<TmdbVideo>> GetTrailersAsync(
+            string tmdbId,
+            string apiKey,
+            IReadOnlySet<string>? allowedLanguages,
+            CancellationToken ct)
         {
             try
             {
-                var url = $"{BaseUrl}/movie/{tmdbId}/videos?language=en-US";
+                // No language filter on the URL — we want all available trailers so we can
+                // filter by iso_639_1 ourselves based on the user's language preference.
+                var url = $"{BaseUrl}/movie/{tmdbId}/videos";
                 using var request = new HttpRequestMessage(HttpMethod.Get, url);
                 ApplyAuth(request, apiKey);
                 using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
@@ -245,9 +251,15 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                     var key = result.GetProperty("key").GetString();
                     if (string.IsNullOrEmpty(key)) continue;
 
+                    var lang = result.TryGetProperty("iso_639_1", out var l) ? (l.GetString() ?? string.Empty) : string.Empty;
+
+                    if (allowedLanguages != null && allowedLanguages.Count > 0 && !allowedLanguages.Contains(lang))
+                        continue;
+
                     videos.Add(new TmdbVideo(
                         key,
                         result.GetProperty("name").GetString() ?? "Trailer",
+                        lang,
                         result.GetProperty("official").GetBoolean(),
                         result.GetProperty("size").GetInt32()));
                 }

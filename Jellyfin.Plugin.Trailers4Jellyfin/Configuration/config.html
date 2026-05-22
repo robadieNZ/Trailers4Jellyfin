@@ -83,6 +83,37 @@
                         </div>
                     </fieldset>
 
+                    <!-- Languages -->
+                    <fieldset class="verticalSection verticalSection-extrabottompadding">
+                        <legend><h3 class="sectionTitle">Trailer Languages</h3></legend>
+                        <p class="fieldDescription">
+                            Only download trailers in the selected languages.
+                            Leave everything unchecked to allow all languages.
+                        </p>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 2em;">
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-en" /><span>English</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-es" /><span>Spanish</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-fr" /><span>French</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-de" /><span>German</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-it" /><span>Italian</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-pt" /><span>Portuguese</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-nl" /><span>Dutch</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-ru" /><span>Russian</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-pl" /><span>Polish</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-sv" /><span>Swedish</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-no" /><span>Norwegian</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-da" /><span>Danish</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-ja" /><span>Japanese</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-ko" /><span>Korean</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-zh" /><span>Chinese</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-ar" /><span>Arabic</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-hi" /><span>Hindi</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-tr" /><span>Turkish</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-th" /><span>Thai</span></label></div>
+                            <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-id" /><span>Indonesian</span></label></div>
+                        </div>
+                    </fieldset>
+
                     <!-- Sources -->
                     <fieldset class="verticalSection verticalSection-extrabottompadding">
                         <legend><h3 class="sectionTitle">Trailer Sources</h3></legend>
@@ -283,6 +314,11 @@
                     document.getElementById('skip-library').checked         = config.SkipMoviesInLibrary !== false;
                     document.getElementById('skip-downloaded').checked      = config.SkipAlreadyDownloaded !== false;
                     document.getElementById('ytdlp-path').value             = config.YtDlpPath || '';
+                    var langs = (config.AllowedLanguages || '').split(',').map(l => l.trim()).filter(Boolean);
+                    ['en','es','fr','de','it','pt','nl','ru','pl','sv','no','da','ja','ko','zh','ar','hi','tr','th','id']
+                        .forEach(function(code) {
+                            document.getElementById('lang-' + code).checked = langs.length === 0 || langs.indexOf(code) !== -1;
+                        });
                     document.getElementById('max-total-trailers').value     = config.MaxTotalTrailers ?? 50;
                     document.getElementById('delete-watched').checked       = !!config.DeleteWatchedTrailers;
                     Dashboard.hideLoadingMsg();
@@ -308,6 +344,12 @@
                     config.SkipMoviesInLibrary    = document.getElementById('skip-library').checked;
                     config.SkipAlreadyDownloaded  = document.getElementById('skip-downloaded').checked;
                     config.YtDlpPath              = document.getElementById('ytdlp-path').value;
+                    var allLangCodes = ['en','es','fr','de','it','pt','nl','ru','pl','sv','no','da','ja','ko','zh','ar','hi','tr','th','id'];
+                    var checkedLangs = allLangCodes.filter(function(code) {
+                        return document.getElementById('lang-' + code).checked;
+                    });
+                    // If all are checked treat it as "no preference" (empty string)
+                    config.AllowedLanguages       = checkedLangs.length === allLangCodes.length ? '' : checkedLangs.join(',');
                     config.MaxTotalTrailers       = parseInt(document.getElementById('max-total-trailers').value, 10) ?? 50;
                     config.DeleteWatchedTrailers  = document.getElementById('delete-watched').checked;
                     ApiClient.updatePluginConfiguration(pluginId, config)

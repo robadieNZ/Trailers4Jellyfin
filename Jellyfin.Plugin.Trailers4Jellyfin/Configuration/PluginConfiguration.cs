@@ -35,6 +35,11 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Configuration
         public int NumberOfTrailers { get; set; } = 2;
         public bool EnableGenreMatching { get; set; } = true;
 
+        // ── Languages ─────────────────────────────────────────────────────────
+
+        /// <summary>Comma-separated ISO 639-1 codes. Empty = all languages allowed.</summary>
+        public string AllowedLanguages { get; set; } = string.Empty;
+
         // ── Trailer Rotation ──────────────────────────────────────────────────
 
         /// <summary>Maximum trailers to keep on disk. Oldest are deleted first when exceeded. 0 = unlimited.</summary>
