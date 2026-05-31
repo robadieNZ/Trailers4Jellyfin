@@ -232,7 +232,7 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
             // Delete watched trailers first.
             if (config.DeleteWatchedTrailers)
             {
-                var users = _userManager.Users.ToList();
+                var users = _userManager.GetUsers().ToList();
                 foreach (var file in files.ToList())
                 {
                     if (!trailerItemsByPath.TryGetValue(file, out var item)) continue;
