@@ -1,5 +1,5 @@
 ---
-version: 1.0.12.0
+version: 1.0.13.0
 name: Trailers4Jellyfin
 guid: 7635bf62-6b22-4c4c-9bc7-5d55f0c2bff0
 description: >
@@ -11,7 +11,7 @@ category: General
 owner: robadieNZ
 targetAbi: 10.11.0.0
 changelog:
-  - Add age rating filter: trailers are never shown before a movie if their rating exceeds the movie's rating (e.g. no R-rated trailers before a PG film). Supports MPAA, BBFC, US TV, and common European ratings.
+  - Fix: IUserManager.Users removed in Jellyfin 10.11.10 caused the download task to crash — DeleteWatchedTrailers now skips gracefully with a warning if the API is unavailable
 
 dotnetProjects:
   - name: Jellyfin.Plugin.Trailers4Jellyfin

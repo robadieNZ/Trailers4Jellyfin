@@ -232,18 +232,25 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
             // Delete watched trailers first.
             if (config.DeleteWatchedTrailers)
             {
-                var users = _userManager.Users.ToList();
-                foreach (var file in files.ToList())
+                try
                 {
-                    if (!trailerItemsByPath.TryGetValue(file, out var item)) continue;
-                    bool watched = users.Any(u => _userDataManager.GetUserData(u, item).Played);
-                    if (!watched) continue;
+                    var users = _userManager.Users.ToList();
+                    foreach (var file in files.ToList())
+                    {
+                        if (!trailerItemsByPath.TryGetValue(file, out var item)) continue;
+                        bool watched = users.Any(u => _userDataManager.GetUserData(u, item).Played);
+                        if (!watched) continue;
 
-                    _logger.LogInformation("|Trailers4Jellyfin| Deleting watched trailer: {File}", Path.GetFileName(file));
-                    File.Delete(file);
-                    var sidecar = Path.ChangeExtension(file, ".json");
-                    if (File.Exists(sidecar)) File.Delete(sidecar);
-                    files.Remove(file);
+                        _logger.LogInformation("|Trailers4Jellyfin| Deleting watched trailer: {File}", Path.GetFileName(file));
+                        File.Delete(file);
+                        var sidecar = Path.ChangeExtension(file, ".json");
+                        if (File.Exists(sidecar)) File.Delete(sidecar);
+                        files.Remove(file);
+                    }
+                }
+                catch (MissingMethodException ex)
+                {
+                    _logger.LogWarning(ex, "|Trailers4Jellyfin| IUserManager.Users is not available in this Jellyfin version — DeleteWatchedTrailers skipped.");
                 }
             }
 
