@@ -1,5 +1,5 @@
 ---
-version: 1.0.13.0
+version: 1.0.14.0
 name: Trailers4Jellyfin
 guid: 7635bf62-6b22-4c4c-9bc7-5d55f0c2bff0
 description: >
@@ -11,7 +11,7 @@ category: General
 owner: robadieNZ
 targetAbi: 10.11.0.0
 changelog:
-  - Fix: IUserManager.Users removed in Jellyfin 10.11.10 caused the download task to crash — DeleteWatchedTrailers now skips gracefully with a warning if the API is unavailable
+  - Fix: IUserManager.Users was replaced by GetUsers() in Jellyfin 10.11.10 — plugin now tries GetUsers() first then falls back to Users via reflection, working on both old and new versions
 
 dotnetProjects:
   - name: Jellyfin.Plugin.Trailers4Jellyfin

@@ -11,6 +11,7 @@ using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Model.Entities;
+using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Model.Tasks;
 using Microsoft.Extensions.Logging;
 
@@ -215,6 +216,23 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
             return ids;
         }
 
+        // GetUsers() replaced the Users property in Jellyfin 10.11.10. Try both via reflection
+        // so the plugin works across patch versions without recompiling.
+        private IList<User> GetAllUsers()
+        {
+            var type = _userManager.GetType();
+
+            var method = type.GetMethod("GetUsers", Type.EmptyTypes);
+            if (method != null)
+                return ((IEnumerable<User>)method.Invoke(_userManager, null)!).ToList();
+
+            var prop = type.GetProperty("Users");
+            if (prop != null)
+                return ((IEnumerable<User>)prop.GetValue(_userManager)!).ToList();
+
+            throw new MissingMethodException("Neither GetUsers() nor Users found on IUserManager.");
+        }
+
         private void CleanupTrailers(Configuration.PluginConfiguration config)
         {
             var downloadFolder = config.DownloadFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
@@ -234,7 +252,8 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
             {
                 try
                 {
-                    var users = _userManager.Users.ToList();
+                    // Users property was replaced with GetUsers() in Jellyfin 10.11.10+.
+                    var users = GetAllUsers();
                     foreach (var file in files.ToList())
                     {
                         if (!trailerItemsByPath.TryGetValue(file, out var item)) continue;
@@ -250,7 +269,7 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
                 }
                 catch (MissingMethodException ex)
                 {
-                    _logger.LogWarning(ex, "|Trailers4Jellyfin| IUserManager.Users is not available in this Jellyfin version — DeleteWatchedTrailers skipped.");
+                    _logger.LogWarning(ex, "|Trailers4Jellyfin| Cannot enumerate users in this Jellyfin version — DeleteWatchedTrailers skipped.");
                 }
             }
 
