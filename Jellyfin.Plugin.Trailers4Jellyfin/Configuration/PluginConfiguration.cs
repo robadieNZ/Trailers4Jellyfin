@@ -47,5 +47,13 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Configuration
 
         /// <summary>Delete trailers that any user has already watched, making room for fresh ones.</summary>
         public bool DeleteWatchedTrailers { get; set; } = false;
+
+        // ── Advanced ──────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Path to a cookies.txt file (Netscape format) for YouTube authentication.
+        /// Fixes VideoUnavailableException when YouTube blocks server-side requests.
+        /// </summary>
+        public string CookiesFilePath { get; set; } = string.Empty;
     }
 }
