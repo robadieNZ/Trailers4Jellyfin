@@ -282,6 +282,18 @@
                                 Leave blank to use the built-in downloader (720p max, zero extra tools).
                             </div>
                         </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="cookies-file">YouTube cookies file (optional)</label>
+                            <input type="text" id="cookies-file" is="emby-input" placeholder="/config/plugins/cookies.txt" />
+                            <div class="fieldDescription">
+                                Path to a <strong>cookies.txt</strong> file (Netscape format) exported from a browser while
+                                logged into YouTube. Fixes <em>"VideoUnavailableException"</em> errors that occur when YouTube
+                                blocks automated requests from server IPs. Use a browser extension such as
+                                "Get cookies.txt LOCALLY" (Chrome/Firefox) to export the file, then copy it to your
+                                Jellyfin server and enter the path here. Works with both the built-in downloader and yt-dlp.
+                            </div>
+                        </div>
                     </fieldset>
 
                     <br />
@@ -314,6 +326,7 @@
                     document.getElementById('skip-library').checked         = config.SkipMoviesInLibrary !== false;
                     document.getElementById('skip-downloaded').checked      = config.SkipAlreadyDownloaded !== false;
                     document.getElementById('ytdlp-path').value             = config.YtDlpPath || '';
+                    document.getElementById('cookies-file').value           = config.CookiesFilePath || '';
                     var langs = (config.AllowedLanguages || '').split(',').map(l => l.trim()).filter(Boolean);
                     ['en','es','fr','de','it','pt','nl','ru','pl','sv','no','da','ja','ko','zh','ar','hi','tr','th','id']
                         .forEach(function(code) {
@@ -344,7 +357,8 @@
                     config.SkipMoviesInLibrary    = document.getElementById('skip-library').checked;
                     config.SkipAlreadyDownloaded  = document.getElementById('skip-downloaded').checked;
                     config.YtDlpPath              = document.getElementById('ytdlp-path').value;
-                    var allLangCodes = ['en','es','fr','de','it','pt','nl','ru','pl','sv','no','da','ja','ko','zh','ar','hi','tr','th','id'];
+                    config.CookiesFilePath        = document.getElementById('cookies-file').value;
+                    var allLangCodes =['en','es','fr','de','it','pt','nl','ru','pl','sv','no','da','ja','ko','zh','ar','hi','tr','th','id'];
                     var checkedLangs = allLangCodes.filter(function(code) {
                         return document.getElementById('lang-' + code).checked;
                     });

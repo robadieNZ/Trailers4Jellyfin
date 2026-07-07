@@ -161,6 +161,7 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
                     outputPath,
                     config.PreferredVideoHeight,
                     config.YtDlpPath,
+                    config.CookiesFilePath,
                     cancellationToken).ConfigureAwait(false);
 
                 if (success)
