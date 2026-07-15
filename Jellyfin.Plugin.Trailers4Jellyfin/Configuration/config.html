@@ -278,8 +278,20 @@
                             <input type="text" id="ytdlp-path" is="emby-input" placeholder="/usr/local/bin/yt-dlp" />
                             <div class="fieldDescription">
                                 Full path to <a href="https://github.com/yt-dlp/yt-dlp" target="_blank" rel="noopener">yt-dlp</a>.
-                                Required for 1080p quality. Also needs <strong>ffmpeg</strong> on the system PATH.
-                                Leave blank to use the built-in downloader (720p max, zero extra tools).
+                                <strong>Recommended — yt-dlp is far more reliable than the built-in downloader</strong>
+                                and handles YouTube bot protection automatically.
+                                Leave blank to auto-detect from common locations and PATH, or fall back to the
+                                built-in downloader (720p max) if yt-dlp is not found.
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="ffmpeg-path">ffmpeg path (optional)</label>
+                            <input type="text" id="ffmpeg-path" is="emby-input" placeholder="/usr/local/bin/ffmpeg" />
+                            <div class="fieldDescription">
+                                Full path to <strong>ffmpeg</strong>. Required by yt-dlp to merge separate
+                                audio and video streams into a single .mp4 (needed for 1080p and when yt-dlp
+                                cannot find ffmpeg automatically). Leave blank if ffmpeg is on the system PATH.
                             </div>
                         </div>
 
@@ -326,6 +338,7 @@
                     document.getElementById('skip-library').checked         = config.SkipMoviesInLibrary !== false;
                     document.getElementById('skip-downloaded').checked      = config.SkipAlreadyDownloaded !== false;
                     document.getElementById('ytdlp-path').value             = config.YtDlpPath || '';
+                    document.getElementById('ffmpeg-path').value            = config.FfmpegPath || '';
                     document.getElementById('cookies-file').value           = config.CookiesFilePath || '';
                     var langs = (config.AllowedLanguages || '').split(',').map(l => l.trim()).filter(Boolean);
                     ['en','es','fr','de','it','pt','nl','ru','pl','sv','no','da','ja','ko','zh','ar','hi','tr','th','id']
@@ -357,6 +370,7 @@
                     config.SkipMoviesInLibrary    = document.getElementById('skip-library').checked;
                     config.SkipAlreadyDownloaded  = document.getElementById('skip-downloaded').checked;
                     config.YtDlpPath              = document.getElementById('ytdlp-path').value;
+                    config.FfmpegPath             = document.getElementById('ffmpeg-path').value;
                     config.CookiesFilePath        = document.getElementById('cookies-file').value;
                     var allLangCodes =['en','es','fr','de','it','pt','nl','ru','pl','sv','no','da','ja','ko','zh','ar','hi','tr','th','id'];
                     var checkedLangs = allLangCodes.filter(function(code) {

@@ -29,6 +29,9 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Configuration
         public bool SkipMoviesInLibrary { get; set; } = true;
         public string YtDlpPath { get; set; } = string.Empty;
 
+        /// <summary>Path to ffmpeg binary. Passed to yt-dlp via --ffmpeg-location for audio/video merging.</summary>
+        public string FfmpegPath { get; set; } = string.Empty;
+
         // ── Cinema Mode ───────────────────────────────────────────────────────
 
         public bool EnableCinemaMode { get; set; } = true;

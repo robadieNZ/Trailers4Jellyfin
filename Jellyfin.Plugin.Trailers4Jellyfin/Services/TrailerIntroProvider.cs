@@ -27,6 +27,21 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
 
         public Task<IEnumerable<IntroInfo>> GetIntros(BaseItem item, User user)
         {
+            try
+            {
+                return GetIntrosInternal(item, user);
+            }
+            catch (Exception ex)
+            {
+                // Never let an exception from this provider crash movie playback.
+                // This can happen when the Trailers library is disabled and GetItemList throws.
+                _logger.LogError(ex, "|Trailers4Jellyfin| GetIntros threw unexpectedly — returning no intros to protect playback");
+                return Task.FromResult(Enumerable.Empty<IntroInfo>());
+            }
+        }
+
+        private Task<IEnumerable<IntroInfo>> GetIntrosInternal(BaseItem item, User user)
+        {
             var config = Plugin.Instance?.Configuration;
             if (config == null || !config.EnableCinemaMode || config.NumberOfTrailers <= 0)
                 return Task.FromResult(Enumerable.Empty<IntroInfo>());

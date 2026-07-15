@@ -1,5 +1,5 @@
 ---
-version: 1.0.16.0
+version: 1.0.17.0
 name: Trailers4Jellyfin
 guid: 7635bf62-6b22-4c4c-9bc7-5d55f0c2bff0
 description: >
@@ -11,7 +11,9 @@ category: General
 owner: robadieNZ
 targetAbi: 10.11.0.0
 changelog:
-  - Fix: language filter now correctly downloads non-English trailers — TMDB was returning only English videos by default; plugin now passes include_video_language to the videos endpoint
+  - Fix: yt-dlp is now auto-detected from PATH and common install locations — no manual path configuration needed in most cases
+  - Fix: disabling the Trailers library no longer breaks movie playback — intro provider exceptions are caught and return empty intros safely
+  - Add: ffmpeg path setting so yt-dlp can merge audio/video when ffmpeg is not on the system PATH
 
 dotnetProjects:
   - name: Jellyfin.Plugin.Trailers4Jellyfin

@@ -162,6 +162,7 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
                     config.PreferredVideoHeight,
                     config.YtDlpPath,
                     config.CookiesFilePath,
+                    config.FfmpegPath,
                     cancellationToken).ConfigureAwait(false);
 
                 if (success)

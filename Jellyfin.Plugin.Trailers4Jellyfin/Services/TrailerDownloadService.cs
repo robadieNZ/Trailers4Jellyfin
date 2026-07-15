@@ -56,10 +56,8 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
 
         /// <summary>
         /// Downloads a YouTube video by key to outputPath.
-        /// Uses yt-dlp when a valid path is configured (supports 1080p+, requires ffmpeg on PATH).
-        /// Falls back to YoutubeExplode for built-in download (max 720p, no external tools needed).
-        /// cookiesFilePath (optional): path to a Netscape cookies.txt exported from a browser logged
-        /// into YouTube — fixes VideoUnavailableException on servers blocked by YouTube.
+        /// Prefers yt-dlp (configured path or auto-detected on PATH/common locations).
+        /// Falls back to YoutubeExplode, which may be blocked by YouTube bot detection on server IPs.
         /// </summary>
         public async Task<bool> DownloadAsync(
             string youtubeKey,
@@ -67,18 +65,62 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
             int preferredHeight,
             string ytDlpPath,
             string cookiesFilePath,
+            string ffmpegPath,
             CancellationToken ct)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 
-            if (!string.IsNullOrWhiteSpace(ytDlpPath) && File.Exists(ytDlpPath))
+            // Prefer explicitly configured yt-dlp; auto-detect on PATH/common locations as fallback.
+            var resolvedYtDlp = !string.IsNullOrWhiteSpace(ytDlpPath) && File.Exists(ytDlpPath)
+                ? ytDlpPath
+                : FindYtDlp();
+
+            if (resolvedYtDlp != null)
             {
-                return await DownloadWithYtDlpAsync(youtubeKey, outputPath, preferredHeight, ytDlpPath, cookiesFilePath, ct)
+                if (string.IsNullOrWhiteSpace(ytDlpPath))
+                    _logger.LogInformation("|Trailers4Jellyfin| Auto-detected yt-dlp at {Path}", resolvedYtDlp);
+
+                return await DownloadWithYtDlpAsync(youtubeKey, outputPath, preferredHeight, resolvedYtDlp, cookiesFilePath, ffmpegPath, ct)
                     .ConfigureAwait(false);
             }
 
+            _logger.LogWarning(
+                "|Trailers4Jellyfin| yt-dlp not found — falling back to built-in downloader. " +
+                "YouTube bot protection may block downloads. Install yt-dlp for reliable operation.");
+
             return await DownloadWithYoutubeExplodeAsync(youtubeKey, outputPath, preferredHeight, cookiesFilePath, ct)
                 .ConfigureAwait(false);
+        }
+
+        // Searches PATH and common install locations for yt-dlp.
+        private static string? FindYtDlp()
+        {
+            // Well-known install locations (Linux, macOS, Homebrew, pip user install)
+            var knownPaths = new[]
+            {
+                "/usr/local/bin/yt-dlp",
+                "/usr/bin/yt-dlp",
+                "/opt/homebrew/bin/yt-dlp",
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/bin/yt-dlp"),
+            };
+
+            foreach (var p in knownPaths)
+            {
+                if (File.Exists(p)) return p;
+            }
+
+            // Fall back to PATH scan
+            var pathVar = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+            var sep = OperatingSystem.IsWindows() ? ';' : ':';
+            var exe = OperatingSystem.IsWindows() ? "yt-dlp.exe" : "yt-dlp";
+
+            foreach (var dir in pathVar.Split(sep, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var candidate = Path.Combine(dir.Trim(), exe);
+                if (File.Exists(candidate)) return candidate;
+            }
+
+            return null;
         }
 
         private async Task<bool> DownloadWithYoutubeExplodeAsync(
@@ -146,6 +188,7 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
             int preferredHeight,
             string ytDlpPath,
             string cookiesFilePath,
+            string ffmpegPath,
             CancellationToken ct)
         {
             try
@@ -159,6 +202,9 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                     "--no-playlist",
                     "--no-warnings",
                 };
+
+                if (!string.IsNullOrWhiteSpace(ffmpegPath) && File.Exists(ffmpegPath))
+                    argParts.Add($"--ffmpeg-location \"{ffmpegPath}\"");
 
                 if (!string.IsNullOrWhiteSpace(cookiesFilePath) && File.Exists(cookiesFilePath))
                     argParts.Add($"--cookies \"{cookiesFilePath}\"");
