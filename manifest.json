@@ -9,6 +9,14 @@
         "imageUrl": "https://raw.githubusercontent.com/robadieNZ/Trailers4Jellyfin/main/Jellyfin.Plugin.Trailers4Jellyfin/Images/logo.svg",
         "versions": [
             {
+                "checksum": "9f43876efaadcf525e11c250c2fa0cc6",
+                "changelog": "- {'Fix': 'yt-dlp is now auto-detected from PATH and common install locations \u2014 no manual path configuration needed in most cases'}\n- {'Fix': 'disabling the Trailers library no longer breaks movie playback \u2014 intro provider exceptions are caught and return empty intros safely'}\n- {'Add': 'ffmpeg path setting so yt-dlp can merge audio/video when ffmpeg is not on the system PATH'}\n",
+                "targetAbi": "10.11.0.0",
+                "sourceUrl": "https://github.com/robadieNZ/Trailers4Jellyfin/releases/download/v1.0.17.0/trailers4jellyfin_1.0.17.0.zip",
+                "timestamp": "2026-07-16T03:13:21Z",
+                "version": "1.0.17.0"
+            },
+            {
                 "checksum": "a09efdb15bbc20ec567f3772fa60e31b",
                 "changelog": "- {'Fix': 'language filter now correctly downloads non-English trailers \u2014 TMDB was returning only English videos by default; plugin now passes include_video_language to the videos endpoint'}\n",
                 "targetAbi": "10.11.0.0",
