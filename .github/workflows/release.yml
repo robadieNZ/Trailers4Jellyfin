@@ -56,20 +56,19 @@ jobs:
           VERSION="${{ steps.version.outputs.VERSION }}"
           echo "MD5=$(md5sum trailers4jellyfin_${VERSION}.zip | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
-      - name: Update manifest.json
+      - name: Update manifest.json and commit to main
         run: |
           pip install pyyaml --quiet
-          python3 update_manifest.py "${{ steps.version.outputs.VERSION }}" "${{ steps.checksum.outputs.MD5 }}"
-
-      - name: Commit manifest
-        run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Switch to the latest main before updating the manifest so there is no
+          # rebase conflict when another commit landed on main since the tag was pushed.
+          git fetch origin main
+          git checkout main
+          python3 update_manifest.py "${{ steps.version.outputs.VERSION }}" "${{ steps.checksum.outputs.MD5 }}"
           git add manifest.json
           git commit -m "chore: update manifest.json for v${{ steps.version.outputs.VERSION }}" || echo "No changes to commit"
-          git fetch origin main
-          git rebase origin/main
-          git push origin HEAD:main
+          git push origin main
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
