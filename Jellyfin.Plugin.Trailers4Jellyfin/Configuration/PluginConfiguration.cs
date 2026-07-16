@@ -37,6 +37,9 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Configuration
         public bool EnableCinemaMode { get; set; } = true;
         public int NumberOfTrailers { get; set; } = 2;
         public bool EnableGenreMatching { get; set; } = true;
+        public bool SkipWatchedTrailers { get; set; } = true;
+        public bool SkipInProgressMovies { get; set; } = true;
+        public int TrailerWatchInterval { get; set; } = 1;
 
         // ── Languages ─────────────────────────────────────────────────────────
 

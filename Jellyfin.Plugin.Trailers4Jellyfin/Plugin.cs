@@ -27,7 +27,11 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin
             yield return new PluginPageInfo
             {
                 Name = Name,
-                EmbeddedResourcePath = GetType().Namespace + ".Configuration.config.html"
+                DisplayName = Name,
+                EmbeddedResourcePath = GetType().Namespace + ".Configuration.config.html",
+                EnableInMainMenu = true,
+                MenuSection = "plugins",
+                MenuIcon = "movie"
             };
         }
     }

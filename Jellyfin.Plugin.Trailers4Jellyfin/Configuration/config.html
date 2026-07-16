@@ -81,6 +81,36 @@
                                 Falls back to random trailers if not enough genre matches are found.
                             </div>
                         </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="skip-watched-trailers" />
+                                <span>Skip trailers this user has already watched</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Uses each Jellyfin user's watched status so users don't have to rewatch the same
+                                intro trailers.
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="trailer-watch-interval">Show trailers every</label>
+                            <input type="number" id="trailer-watch-interval" is="emby-input" min="1" max="100" />
+                            <div class="fieldDescription">
+                                Movie starts per user. 1 = every movie. 3 = show on the first movie, skip the next 2,
+                                then show again on the 4th movie.
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="skip-in-progress-movies" />
+                                <span>Skip trailers for movies already in progress</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Avoids showing trailers when a user resumes a partially watched movie.
+                            </div>
+                        </div>
                     </fieldset>
 
                     <!-- Languages -->
@@ -326,6 +356,9 @@
                     document.getElementById('enable-cinema-mode').checked   = config.EnableCinemaMode !== false;
                     document.getElementById('num-trailers').value           = config.NumberOfTrailers ?? 2;
                     document.getElementById('enable-genre-matching').checked = config.EnableGenreMatching !== false;
+                    document.getElementById('skip-watched-trailers').checked = config.SkipWatchedTrailers !== false;
+                    document.getElementById('trailer-watch-interval').value  = config.TrailerWatchInterval ?? 1;
+                    document.getElementById('skip-in-progress-movies').checked = config.SkipInProgressMovies !== false;
                     document.getElementById('source-now-playing').checked   = config.SourceNowPlaying !== false;
                     document.getElementById('source-upcoming').checked      = config.SourceUpcoming !== false;
                     document.getElementById('source-popular').checked       = !!config.SourcePopular;
@@ -358,6 +391,9 @@
                     config.EnableCinemaMode       = document.getElementById('enable-cinema-mode').checked;
                     config.NumberOfTrailers       = parseInt(document.getElementById('num-trailers').value, 10) || 2;
                     config.EnableGenreMatching    = document.getElementById('enable-genre-matching').checked;
+                    config.SkipWatchedTrailers    = document.getElementById('skip-watched-trailers').checked;
+                    config.TrailerWatchInterval   = parseInt(document.getElementById('trailer-watch-interval').value, 10) || 1;
+                    config.SkipInProgressMovies   = document.getElementById('skip-in-progress-movies').checked;
                     config.SourceNowPlaying       = document.getElementById('source-now-playing').checked;
                     config.SourceUpcoming         = document.getElementById('source-upcoming').checked;
                     config.SourcePopular          = document.getElementById('source-popular').checked;
