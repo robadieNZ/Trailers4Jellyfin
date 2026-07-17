@@ -221,6 +221,39 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
             return null;
         }
 
+        public async Task<IReadOnlyList<string>> GetMovieKeywordsAsync(
+            int tmdbId,
+            string apiKey,
+            CancellationToken ct)
+        {
+            try
+            {
+                var url = $"{BaseUrl}/movie/{tmdbId}/keywords";
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                ApplyAuth(request, apiKey);
+                using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+                var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                using var doc = JsonDocument.Parse(json);
+
+                if (!doc.RootElement.TryGetProperty("keywords", out var keywords))
+                    return Array.Empty<string>();
+
+                return keywords
+                    .EnumerateArray()
+                    .Select(k => k.TryGetProperty("name", out var name) ? name.GetString() : null)
+                    .Where(k => !string.IsNullOrWhiteSpace(k))
+                    .Cast<string>()
+                    .ToList();
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "|Trailers4Jellyfin| Failed to fetch TMDB keywords for movie ID {Id}", tmdbId);
+                return Array.Empty<string>();
+            }
+        }
+
         // All ISO 639-1 codes exposed in the UI. Used to request non-English trailers from TMDB
         // when no specific language filter is set (TMDB defaults to English-only without this).
         private const string AllSupportedLanguageCodes = "en,es,fr,de,it,pt,nl,ru,pl,sv,no,da,ja,ko,zh,ar,hi,tr,th,id,null";

@@ -155,6 +155,20 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
                 progress.Report(taskProgress);
                 processed++;
 
+                if (excludedKeywords.Count > 0)
+                {
+                    var tmdbKeywords = await _tmdbService.GetMovieKeywordsAsync(
+                        movie.Id, config.TmdbApiKey, cancellationToken).ConfigureAwait(false);
+
+                    if (tmdbKeywords.Any(keyword => ContainsAnyKeyword(keyword, excludedKeywords)))
+                    {
+                        _logger.LogInformation(
+                            "|Trailers4Jellyfin| Skipping '{Title}' because TMDB keywords matched an excluded keyword",
+                            movie.Title);
+                        continue;
+                    }
+                }
+
                 var outputPath = BuildOutputPath(movie.Title, movie.Year, config);
 
                 if (config.SkipAlreadyDownloaded && File.Exists(outputPath))
