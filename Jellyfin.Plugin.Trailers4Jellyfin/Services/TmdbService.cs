@@ -229,6 +229,7 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
             string tmdbId,
             string apiKey,
             IReadOnlySet<string>? allowedLanguages,
+            IReadOnlyList<string> excludedKeywords,
             CancellationToken ct)
         {
             try
@@ -264,9 +265,13 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                     if (allowedLanguages != null && allowedLanguages.Count > 0 && !allowedLanguages.Contains(lang))
                         continue;
 
+                    var name = result.GetProperty("name").GetString() ?? "Trailer";
+                    if (ContainsAnyKeyword(name, excludedKeywords))
+                        continue;
+
                     videos.Add(new TmdbVideo(
                         key,
-                        result.GetProperty("name").GetString() ?? "Trailer",
+                        name,
                         lang,
                         result.GetProperty("official").GetBoolean(),
                         result.GetProperty("size").GetInt32()));
@@ -283,6 +288,11 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                 _logger.LogError(ex, "|Trailers4Jellyfin| GetTrailers failed for TMDB ID {Id}", tmdbId);
                 return new List<TmdbVideo>();
             }
+        }
+
+        private static bool ContainsAnyKeyword(string value, IReadOnlyList<string> keywords)
+        {
+            return keywords.Any(keyword => value.Contains(keyword, StringComparison.OrdinalIgnoreCase));
         }
     }
 }

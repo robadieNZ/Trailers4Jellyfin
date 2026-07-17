@@ -97,10 +97,29 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
                 : new HashSet<string>(
                     config.AllowedLanguages.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
                     StringComparer.OrdinalIgnoreCase) as IReadOnlySet<string>;
+            var excludedKeywords = ParseExcludedKeywords(config.ExcludedTrailerKeywords);
 
             _logger.LogInformation("|Trailers4Jellyfin| Fetching candidates from TMDB...");
             var candidates = await _tmdbService.GetCandidateMoviesAsync(config, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("|Trailers4Jellyfin| Found {Count} candidate movies across all sources", candidates.Count);
+
+            if (excludedKeywords.Count > 0)
+            {
+                var beforeKeywordFilter = candidates.Count;
+                candidates = candidates
+                    .Where(m => !ContainsAnyKeyword(m.Title, excludedKeywords))
+                    .ToList();
+                _logger.LogInformation(
+                    "|Trailers4Jellyfin| {Count} candidates remain after filtering excluded title keywords",
+                    candidates.Count);
+
+                if (beforeKeywordFilter > candidates.Count)
+                {
+                    _logger.LogDebug(
+                        "|Trailers4Jellyfin| Skipped {Count} candidate movie(s) because their title matched an excluded keyword",
+                        beforeKeywordFilter - candidates.Count);
+                }
+            }
 
             // Fetch genre ID→name map once for sidecar metadata.
             var genreMap = await _tmdbService.GetGenreMapAsync(config.TmdbApiKey, cancellationToken).ConfigureAwait(false);
@@ -145,11 +164,11 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
                 }
 
                 var trailers = await _tmdbService.GetTrailersAsync(
-                    movie.Id.ToString(), config.TmdbApiKey, allowedLanguages, cancellationToken).ConfigureAwait(false);
+                    movie.Id.ToString(), config.TmdbApiKey, allowedLanguages, excludedKeywords, cancellationToken).ConfigureAwait(false);
 
                 if (trailers.Count == 0)
                 {
-                    _logger.LogDebug("|Trailers4Jellyfin| No YouTube trailers on TMDB for '{Title}'", movie.Title);
+                    _logger.LogDebug("|Trailers4Jellyfin| No allowed YouTube trailers on TMDB for '{Title}'", movie.Title);
                     continue;
                 }
 
@@ -298,6 +317,23 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
             var safeName = string.Concat(title.Split(Path.GetInvalidFileNameChars())).Trim();
             var yearPart = year.HasValue ? $" ({year.Value})" : string.Empty;
             return Path.Combine(config.DownloadFolder, $"{safeName}{yearPart}.mp4");
+        }
+
+        private static IReadOnlyList<string> ParseExcludedKeywords(string keywords)
+        {
+            if (string.IsNullOrWhiteSpace(keywords))
+                return Array.Empty<string>();
+
+            return keywords
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(k => !string.IsNullOrWhiteSpace(k))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static bool ContainsAnyKeyword(string value, IReadOnlyList<string> keywords)
+        {
+            return keywords.Any(keyword => value.Contains(keyword, StringComparison.OrdinalIgnoreCase));
         }
     }
 }
