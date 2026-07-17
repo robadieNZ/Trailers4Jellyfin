@@ -43,6 +43,9 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Configuration
         /// <summary>Comma-separated ISO 639-1 codes. Empty = all languages allowed.</summary>
         public string AllowedLanguages { get; set; } = string.Empty;
 
+        /// <summary>Comma-separated keywords. Movies or trailers whose TMDB title, trailer name, or movie keywords contain one are skipped.</summary>
+        public string ExcludedTrailerKeywords { get; set; } = string.Empty;
+
         // ── Trailer Rotation ──────────────────────────────────────────────────
 
         /// <summary>Maximum trailers to keep on disk. Oldest are deleted first when exceeded. 0 = unlimited.</summary>

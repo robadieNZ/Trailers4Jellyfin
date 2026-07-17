@@ -221,6 +221,39 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
             return null;
         }
 
+        public async Task<IReadOnlyList<string>> GetMovieKeywordsAsync(
+            int tmdbId,
+            string apiKey,
+            CancellationToken ct)
+        {
+            try
+            {
+                var url = $"{BaseUrl}/movie/{tmdbId}/keywords";
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                ApplyAuth(request, apiKey);
+                using var response = await _httpClient.SendAsync(request, ct).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+                var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                using var doc = JsonDocument.Parse(json);
+
+                if (!doc.RootElement.TryGetProperty("keywords", out var keywords))
+                    return Array.Empty<string>();
+
+                return keywords
+                    .EnumerateArray()
+                    .Select(k => k.TryGetProperty("name", out var name) ? name.GetString() : null)
+                    .Where(k => !string.IsNullOrWhiteSpace(k))
+                    .Cast<string>()
+                    .ToList();
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "|Trailers4Jellyfin| Failed to fetch TMDB keywords for movie ID {Id}", tmdbId);
+                return Array.Empty<string>();
+            }
+        }
+
         // All ISO 639-1 codes exposed in the UI. Used to request non-English trailers from TMDB
         // when no specific language filter is set (TMDB defaults to English-only without this).
         private const string AllSupportedLanguageCodes = "en,es,fr,de,it,pt,nl,ru,pl,sv,no,da,ja,ko,zh,ar,hi,tr,th,id,null";
@@ -229,6 +262,7 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
             string tmdbId,
             string apiKey,
             IReadOnlySet<string>? allowedLanguages,
+            IReadOnlyList<string> excludedKeywords,
             CancellationToken ct)
         {
             try
@@ -264,9 +298,13 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                     if (allowedLanguages != null && allowedLanguages.Count > 0 && !allowedLanguages.Contains(lang))
                         continue;
 
+                    var name = result.GetProperty("name").GetString() ?? "Trailer";
+                    if (ContainsAnyKeyword(name, excludedKeywords))
+                        continue;
+
                     videos.Add(new TmdbVideo(
                         key,
-                        result.GetProperty("name").GetString() ?? "Trailer",
+                        name,
                         lang,
                         result.GetProperty("official").GetBoolean(),
                         result.GetProperty("size").GetInt32()));
@@ -283,6 +321,11 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                 _logger.LogError(ex, "|Trailers4Jellyfin| GetTrailers failed for TMDB ID {Id}", tmdbId);
                 return new List<TmdbVideo>();
             }
+        }
+
+        private static bool ContainsAnyKeyword(string value, IReadOnlyList<string> keywords)
+        {
+            return keywords.Any(keyword => value.Contains(keyword, StringComparison.OrdinalIgnoreCase));
         }
     }
 }
