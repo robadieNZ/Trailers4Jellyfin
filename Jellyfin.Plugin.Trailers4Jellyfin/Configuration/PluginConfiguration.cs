@@ -51,6 +51,9 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Configuration
         /// <summary>Delete trailers that any user has already watched, making room for fresh ones.</summary>
         public bool DeleteWatchedTrailers { get; set; } = false;
 
+        /// <summary>Delete downloaded trailers when the matching movie is now present in the Jellyfin library.</summary>
+        public bool DeleteTrailersForMoviesInLibrary { get; set; } = false;
+
         // ── Advanced ──────────────────────────────────────────────────────────
 
         /// <summary>

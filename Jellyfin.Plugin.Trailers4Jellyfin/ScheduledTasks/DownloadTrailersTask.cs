@@ -172,7 +172,7 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
                         "|Trailers4Jellyfin| [{Done}/{Max}] Saved trailer for '{Movie}' → {Path}",
                         downloaded, config.MaxTrailersToDownload, movie.Title, outputPath);
 
-                    await SaveSidecarAsync(outputPath, movie.GenreIds, genreMap, cancellationToken).ConfigureAwait(false);
+                    await SaveSidecarAsync(outputPath, movie.Id, movie.GenreIds, genreMap, cancellationToken).ConfigureAwait(false);
                 }
             }
 
@@ -182,21 +182,18 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
 
         private async Task SaveSidecarAsync(
             string trailerPath,
+            int tmdbId,
             IReadOnlyList<int> genreIds,
             Dictionary<int, string> genreMap,
             CancellationToken ct)
         {
-            if (genreIds == null || genreIds.Count == 0) return;
-
-            var genres = genreIds
+            var genres = (genreIds ?? Array.Empty<int>())
                 .Select(id => genreMap.TryGetValue(id, out var name) ? name : null)
                 .Where(n => !string.IsNullOrEmpty(n))
                 .ToList();
 
-            if (genres.Count == 0) return;
-
             var sidecarPath = Path.ChangeExtension(trailerPath, ".json");
-            var json = JsonSerializer.Serialize(new { genres });
+            var json = JsonSerializer.Serialize(new { tmdbId, genres });
             await File.WriteAllTextAsync(sidecarPath, json, ct).ConfigureAwait(false);
         }
 
@@ -249,6 +246,23 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
                 .Where(f => !Path.GetFileName(f).StartsWith("._", StringComparison.Ordinal))
                 .ToList();
 
+            if (config.DeleteTrailersForMoviesInLibrary)
+            {
+                var libraryTmdbIds = GetLibraryTmdbIds();
+                foreach (var file in files.ToList())
+                {
+                    var tmdbId = GetSidecarTmdbId(file);
+                    if (string.IsNullOrWhiteSpace(tmdbId) || !libraryTmdbIds.Contains(tmdbId))
+                        continue;
+
+                    DeleteTrailerFile(file);
+                    files.Remove(file);
+                    _logger.LogInformation(
+                        "|Trailers4Jellyfin| Deleting trailer because movie is now in library: {File}",
+                        Path.GetFileName(file));
+                }
+            }
+
             // Delete watched trailers first.
             if (config.DeleteWatchedTrailers)
             {
@@ -263,9 +277,7 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
                         if (!watched) continue;
 
                         _logger.LogInformation("|Trailers4Jellyfin| Deleting watched trailer: {File}", Path.GetFileName(file));
-                        File.Delete(file);
-                        var sidecar = Path.ChangeExtension(file, ".json");
-                        if (File.Exists(sidecar)) File.Delete(sidecar);
+                        DeleteTrailerFile(file);
                         files.Remove(file);
                     }
                 }
@@ -286,11 +298,37 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
                 foreach (var file in toDelete)
                 {
                     _logger.LogInformation("|Trailers4Jellyfin| Deleting oldest trailer to stay under cap: {File}", Path.GetFileName(file));
-                    File.Delete(file);
-                    var sidecar = Path.ChangeExtension(file, ".json");
-                    if (File.Exists(sidecar)) File.Delete(sidecar);
+                    DeleteTrailerFile(file);
                 }
             }
+        }
+
+        private static string GetSidecarTmdbId(string trailerPath)
+        {
+            var sidecarPath = Path.ChangeExtension(trailerPath, ".json");
+            if (!File.Exists(sidecarPath)) return string.Empty;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(sidecarPath));
+                if (!doc.RootElement.TryGetProperty("tmdbId", out var tmdbIdEl))
+                    return string.Empty;
+
+                return tmdbIdEl.ValueKind == JsonValueKind.Number
+                    ? tmdbIdEl.GetInt32().ToString()
+                    : tmdbIdEl.GetString() ?? string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        private static void DeleteTrailerFile(string trailerPath)
+        {
+            File.Delete(trailerPath);
+            var sidecar = Path.ChangeExtension(trailerPath, ".json");
+            if (File.Exists(sidecar)) File.Delete(sidecar);
         }
 
         private string BuildOutputPath(string title, int? year, Configuration.PluginConfiguration config)

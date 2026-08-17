@@ -268,6 +268,17 @@
                                 download run, keeping the pool fresh.
                             </div>
                         </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="delete-library-matches" />
+                                <span>Delete trailers for movies now in my library</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Removes downloaded trailers when their TMDB movie ID is later found in your Jellyfin
+                                movie library.
+                            </div>
+                        </div>
                     </fieldset>
 
                     <!-- Advanced -->
@@ -347,6 +358,7 @@
                         });
                     document.getElementById('max-total-trailers').value     = config.MaxTotalTrailers ?? 50;
                     document.getElementById('delete-watched').checked       = !!config.DeleteWatchedTrailers;
+                    document.getElementById('delete-library-matches').checked = !!config.DeleteTrailersForMoviesInLibrary;
                     Dashboard.hideLoadingMsg();
                 });
             });
@@ -380,6 +392,7 @@
                     config.AllowedLanguages       = checkedLangs.length === allLangCodes.length ? '' : checkedLangs.join(',');
                     config.MaxTotalTrailers       = parseInt(document.getElementById('max-total-trailers').value, 10) ?? 50;
                     config.DeleteWatchedTrailers  = document.getElementById('delete-watched').checked;
+                    config.DeleteTrailersForMoviesInLibrary = document.getElementById('delete-library-matches').checked;
                     ApiClient.updatePluginConfiguration(pluginId, config)
                         .then(Dashboard.processPluginConfigurationUpdateResult);
                 });
