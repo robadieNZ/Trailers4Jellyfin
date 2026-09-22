@@ -231,14 +231,28 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                     }
                 };
 
+                // yt-dlp writes continuous progress output while downloading each of its
+                // (video/audio/merge) parts. If stdout/stderr aren't drained concurrently,
+                // the OS pipe buffer fills up, yt-dlp blocks on write(), and the process
+                // hangs indefinitely instead of exiting — draining both streams via the
+                // *DataReceived events (started before WaitForExitAsync) avoids that deadlock.
+                var stderrBuilder = new System.Text.StringBuilder();
+                process.OutputDataReceived += (_, _) => { };
+                process.ErrorDataReceived += (_, e) =>
+                {
+                    if (e.Data != null) stderrBuilder.AppendLine(e.Data);
+                };
+
                 process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
                 await process.WaitForExitAsync(ct).ConfigureAwait(false);
 
                 if (process.ExitCode != 0)
                 {
-                    var stderr = await process.StandardError.ReadToEndAsync(ct).ConfigureAwait(false);
                     _logger.LogError("|Trailers4Jellyfin| yt-dlp exited with code {Code} for {Key}: {Error}",
-                        process.ExitCode, key, stderr);
+                        process.ExitCode, key, stderrBuilder.ToString());
                     return false;
                 }
 

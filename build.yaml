@@ -1,5 +1,5 @@
 ---
-version: 1.0.17.0
+version: 1.0.18.0
 name: Trailers4Jellyfin
 guid: 7635bf62-6b22-4c4c-9bc7-5d55f0c2bff0
 description: >
@@ -11,6 +11,7 @@ category: General
 owner: robadieNZ
 targetAbi: 10.11.0.0
 changelog:
+  - Fix: yt-dlp downloads no longer hang indefinitely partway through — stdout/stderr from the yt-dlp process weren't being drained concurrently, so its progress output could fill the OS pipe buffer and deadlock the download for large or slow trailers
   - Fix: yt-dlp is now auto-detected from PATH and common install locations — no manual path configuration needed in most cases
   - Fix: disabling the Trailers library no longer breaks movie playback — intro provider exceptions are caught and return empty intros safely
   - Add: ffmpeg path setting so yt-dlp can merge audio/video when ffmpeg is not on the system PATH
