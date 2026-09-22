@@ -245,8 +245,26 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
                 .Where(t => t.Path != null && t.Path.StartsWith(downloadFolder, StringComparison.OrdinalIgnoreCase))
                 .ToDictionary(t => t.Path!, StringComparer.OrdinalIgnoreCase);
 
+            // Sweep up intermediates from a previously interrupted download. Cleanup runs before
+            // any download in this task, so nothing here is in flight.
+            foreach (var partial in Directory.EnumerateFiles(config.DownloadFolder)
+                         .Where(TrailerDownloadService.IsPartialDownloadArtifact)
+                         .ToList())
+            {
+                try
+                {
+                    _logger.LogInformation("|Trailers4Jellyfin| Removing leftover partial download: {File}", Path.GetFileName(partial));
+                    File.Delete(partial);
+                }
+                catch (IOException ex)
+                {
+                    _logger.LogWarning(ex, "|Trailers4Jellyfin| Could not delete partial download {File}", Path.GetFileName(partial));
+                }
+            }
+
             var files = Directory.GetFiles(config.DownloadFolder, "*.mp4")
                 .Where(f => !Path.GetFileName(f).StartsWith("._", StringComparison.Ordinal))
+                .Where(f => !TrailerDownloadService.IsPartialDownloadArtifact(f))
                 .ToList();
 
             // Delete watched trailers first.

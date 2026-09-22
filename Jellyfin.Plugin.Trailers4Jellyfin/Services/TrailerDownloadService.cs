@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -91,6 +92,16 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
             return await DownloadWithYoutubeExplodeAsync(youtubeKey, outputPath, preferredHeight, cookiesFilePath, ct)
                 .ConfigureAwait(false);
         }
+
+        // Intermediates yt-dlp leaves behind when a download is interrupted:
+        // "Movie (2025).f137.mp4" (video-only), ".temp.mp4" (merge target), ".part", ".ytdl".
+        // Several of these end in .mp4, so a plain "*.mp4" glob would mistake them for trailers.
+        private static readonly Regex PartialArtifactPattern = new(
+            @"(\.part|\.ytdl|\.temp\.[a-z0-9]+|\.f\d+\.[a-z0-9]+)$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        public static bool IsPartialDownloadArtifact(string path) =>
+            PartialArtifactPattern.IsMatch(Path.GetFileName(path));
 
         // Searches PATH and common install locations for yt-dlp.
         private static string? FindYtDlp()
@@ -193,43 +204,53 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
         {
             try
             {
-                // Format selects the best video at or below preferredHeight merged with the best audio.
-                // --merge-output-format mp4 ensures the output is always an mp4.
-                var argParts = new List<string>
+                var startInfo = new ProcessStartInfo
                 {
-                    $"-f \"bestvideo[height<={preferredHeight}]+bestaudio/best[height<={preferredHeight}]\"",
-                    "--merge-output-format mp4",
-                    "--no-playlist",
-                    "--no-warnings",
+                    FileName = ytDlpPath,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
                 };
 
+                // ArgumentList passes each argv element through verbatim. Never build a single
+                // Arguments string here: movie titles come from TMDB (publicly editable) and are
+                // not sanitised of quote characters on Unix, so a crafted title could otherwise
+                // break out of the quoting and inject yt-dlp flags such as --exec.
+                var args = startInfo.ArgumentList;
+
+                // Format selects the best video at or below preferredHeight merged with the best audio.
+                // --merge-output-format mp4 ensures the output is always an mp4.
+                args.Add("-f");
+                args.Add($"bestvideo[height<={preferredHeight}]+bestaudio/best[height<={preferredHeight}]");
+                args.Add("--merge-output-format");
+                args.Add("mp4");
+                args.Add("--no-playlist");
+                args.Add("--no-warnings");
+
                 if (!string.IsNullOrWhiteSpace(ffmpegPath) && File.Exists(ffmpegPath))
-                    argParts.Add($"--ffmpeg-location \"{ffmpegPath}\"");
+                {
+                    args.Add("--ffmpeg-location");
+                    args.Add(ffmpegPath);
+                }
 
                 if (!string.IsNullOrWhiteSpace(cookiesFilePath) && File.Exists(cookiesFilePath))
-                    argParts.Add($"--cookies \"{cookiesFilePath}\"");
+                {
+                    args.Add("--cookies");
+                    args.Add(cookiesFilePath);
+                }
 
-                argParts.Add($"-o \"{outputPath}\"");
-                argParts.Add($"\"https://www.youtube.com/watch?v={key}\"");
-
-                var args = string.Join(" ", argParts);
+                args.Add("-o");
+                // '%' is output-template syntax to yt-dlp; '%%' is a literal percent. Titles like
+                // "100% Wolf" would otherwise be parsed as a (broken) template.
+                args.Add(outputPath.Replace("%", "%%", StringComparison.Ordinal));
+                args.Add($"https://www.youtube.com/watch?v={key}");
 
                 _logger.LogInformation(
                     "|Trailers4Jellyfin| Downloading {Key} via yt-dlp at max {Height}p to {Path}",
                     key, preferredHeight, outputPath);
 
-                using var process = new Process
-                {
-                    StartInfo = new ProcessStartInfo
-                    {
-                        FileName = ytDlpPath,
-                        Arguments = args,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                    }
-                };
+                using var process = new Process { StartInfo = startInfo };
 
                 // yt-dlp writes continuous progress output while downloading each of its
                 // (video/audio/merge) parts. If stdout/stderr aren't drained concurrently,
@@ -247,7 +268,27 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
 
-                await process.WaitForExitAsync(ct).ConfigureAwait(false);
+                try
+                {
+                    await process.WaitForExitAsync(ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Disposing the Process does not stop the child. Without this, cancelling the
+                    // task leaves yt-dlp running against the same output path, so the next run
+                    // races an invisible orphan.
+                    try
+                    {
+                        if (!process.HasExited)
+                            process.Kill(entireProcessTree: true);
+                    }
+                    catch (Exception killEx)
+                    {
+                        _logger.LogWarning(killEx, "|Trailers4Jellyfin| Could not stop yt-dlp after cancellation");
+                    }
+
+                    throw;
+                }
 
                 if (process.ExitCode != 0)
                 {

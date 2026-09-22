@@ -12,6 +12,10 @@ owner: robadieNZ
 targetAbi: 10.11.0.0
 changelog:
   - Fix: yt-dlp downloads no longer hang indefinitely partway through — stdout/stderr from the yt-dlp process weren't being drained concurrently, so its progress output could fill the OS pipe buffer and deadlock the download for large or slow trailers
+  - Fix: leftover partial downloads (".f137.mp4", ".temp.mp4", ".part") are now cleaned up and no longer counted as trailers — previously they filled the retention cap and could be played as silent video-only intros
+  - Fix: cancelling the download task now stops yt-dlp instead of leaving an orphaned process downloading in the background
+  - Fix: movie titles containing quotes or percent signs are passed to yt-dlp safely — arguments are no longer assembled into a single shell-style string
+  - Security: a crafted TMDB movie title could previously inject extra yt-dlp flags (including --exec) through the unquoted argument string
   - Fix: yt-dlp is now auto-detected from PATH and common install locations — no manual path configuration needed in most cases
   - Fix: disabling the Trailers library no longer breaks movie playback — intro provider exceptions are caught and return empty intros safely
   - Add: ffmpeg path setting so yt-dlp can merge audio/video when ffmpeg is not on the system PATH

@@ -62,7 +62,9 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                     t.Path != null
                     && t.Path.StartsWith(downloadFolder, StringComparison.OrdinalIgnoreCase)
                     && !Path.GetFileName(t.Path).StartsWith("._", StringComparison.Ordinal)
-                    && t.Path.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
+                    && t.Path.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase)
+                    // Fragments from an interrupted download are video-only — never serve one.
+                    && !TrailerDownloadService.IsPartialDownloadArtifact(t.Path))
                 .ToList();
 
             if (trailerItems.Count == 0)
