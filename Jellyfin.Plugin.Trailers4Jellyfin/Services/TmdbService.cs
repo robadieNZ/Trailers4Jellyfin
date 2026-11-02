@@ -221,9 +221,13 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
             return null;
         }
 
-        // All ISO 639-1 codes exposed in the UI. Used to request non-English trailers from TMDB
-        // when no specific language filter is set (TMDB defaults to English-only without this).
+        // Requested when the user has set no language filter at all, so TMDB returns more than
+        // its English-only default. Users wanting a language outside this set add it in the
+        // settings page's "Other languages" box, which makes the filter explicit instead.
         private const string AllSupportedLanguageCodes = "en,es,fr,de,it,pt,nl,ru,pl,sv,no,da,ja,ko,zh,ar,hi,tr,th,id,null";
+
+        private static bool IsIso6391Code(string code) =>
+            code.Length == 2 && char.IsAsciiLetter(code[0]) && char.IsAsciiLetter(code[1]);
 
         public async Task<List<TmdbVideo>> GetTrailersAsync(
             string tmdbId,
@@ -235,8 +239,16 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
             {
                 // include_video_language tells TMDB to return videos beyond its en-US default.
                 // Without it, only English trailers are returned regardless of iso_639_1 filtering.
-                var includeLangs = (allowedLanguages != null && allowedLanguages.Count > 0)
-                    ? string.Join(",", allowedLanguages)
+                // Codes go straight into the query string and the config can be written through the
+                // API without passing the settings page, so keep only well-formed ISO 639-1 codes.
+                var requested = (allowedLanguages ?? (IReadOnlySet<string>)new HashSet<string>())
+                    .Where(IsIso6391Code)
+                    .Select(c => c.ToLowerInvariant())
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+
+                var includeLangs = requested.Count > 0
+                    ? string.Join(",", requested)
                     : AllSupportedLanguageCodes;
 
                 var url = $"{BaseUrl}/movie/{tmdbId}/videos?include_video_language={includeLangs}";

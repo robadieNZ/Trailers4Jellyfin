@@ -112,6 +112,21 @@
                             <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-th" /><span>Thai</span></label></div>
                             <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="lang-id" /><span>Indonesian</span></label></div>
                         </div>
+                        <br />
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="lang-custom">Other languages (optional)</label>
+                            <input type="text" id="lang-custom" is="emby-input" placeholder="cs, he, fi, uk" />
+                            <div class="fieldDescription">
+                                Comma-separated
+                                <a href="https://en.wikipedia.org/wiki/List_of_ISO_639_language_codes" target="_blank" rel="noopener">ISO 639-1</a>
+                                two-letter codes for languages not listed above — for example
+                                <code>cs</code> (Czech), <code>he</code> (Hebrew), <code>fi</code> (Finnish).
+                                These are added to whatever is ticked above. Invalid entries are ignored.
+                                <br />
+                                Note that TMDB's language tag comes from whoever uploaded the trailer, so a
+                                trailer can be labelled with one language but have audio in another.
+                            </div>
+                        </div>
                     </fieldset>
 
                     <!-- Sources -->
@@ -319,6 +334,21 @@
         <script type="text/javascript">
             var pluginId = "7635bf62-6b22-4c4c-9bc7-5d55f0c2bff0";
 
+            // Languages with a checkbox above. Anything else the user saves is shown in the
+            // "Other languages" box, so a code this page doesn't know about survives a round-trip.
+            var checkboxLangCodes = ['en','es','fr','de','it','pt','nl','ru','pl','sv','no','da','ja','ko','zh','ar','hi','tr','th','id'];
+
+            function parseLangCodes(text) {
+                var seen = {};
+                return (text || '').toLowerCase().split(',')
+                    .map(function (c) { return c.trim(); })
+                    .filter(function (c) {
+                        if (!/^[a-z]{2}$/.test(c) || seen[c]) return false;
+                        seen[c] = true;
+                        return true;
+                    });
+            }
+
             $('.trailers4JellyfinConfigPage').on('pageshow', function () {
                 Dashboard.showLoadingMsg();
                 ApiClient.getPluginConfiguration(pluginId).then(function (config) {
@@ -340,11 +370,13 @@
                     document.getElementById('ytdlp-path').value             = config.YtDlpPath || '';
                     document.getElementById('ffmpeg-path').value            = config.FfmpegPath || '';
                     document.getElementById('cookies-file').value           = config.CookiesFilePath || '';
-                    var langs = (config.AllowedLanguages || '').split(',').map(l => l.trim()).filter(Boolean);
-                    ['en','es','fr','de','it','pt','nl','ru','pl','sv','no','da','ja','ko','zh','ar','hi','tr','th','id']
-                        .forEach(function(code) {
-                            document.getElementById('lang-' + code).checked = langs.length === 0 || langs.indexOf(code) !== -1;
-                        });
+                    var langs = parseLangCodes(config.AllowedLanguages);
+                    checkboxLangCodes.forEach(function (code) {
+                        document.getElementById('lang-' + code).checked = langs.length === 0 || langs.indexOf(code) !== -1;
+                    });
+                    document.getElementById('lang-custom').value = langs
+                        .filter(function (code) { return checkboxLangCodes.indexOf(code) === -1; })
+                        .join(', ');
                     document.getElementById('max-total-trailers').value     = config.MaxTotalTrailers ?? 50;
                     document.getElementById('delete-watched').checked       = !!config.DeleteWatchedTrailers;
                     Dashboard.hideLoadingMsg();
@@ -372,12 +404,16 @@
                     config.YtDlpPath              = document.getElementById('ytdlp-path').value;
                     config.FfmpegPath             = document.getElementById('ffmpeg-path').value;
                     config.CookiesFilePath        = document.getElementById('cookies-file').value;
-                    var allLangCodes =['en','es','fr','de','it','pt','nl','ru','pl','sv','no','da','ja','ko','zh','ar','hi','tr','th','id'];
-                    var checkedLangs = allLangCodes.filter(function(code) {
+                    var checkedLangs = checkboxLangCodes.filter(function (code) {
                         return document.getElementById('lang-' + code).checked;
                     });
-                    // If all are checked treat it as "no preference" (empty string)
-                    config.AllowedLanguages       = checkedLangs.length === allLangCodes.length ? '' : checkedLangs.join(',');
+                    var customLangs = parseLangCodes(document.getElementById('lang-custom').value)
+                        .filter(function (code) { return checkedLangs.indexOf(code) === -1; });
+                    // Every box ticked with nothing custom means "no preference", stored as empty.
+                    // Once custom codes exist the list must stay explicit or they'd be dropped here.
+                    config.AllowedLanguages       = (checkedLangs.length === checkboxLangCodes.length && customLangs.length === 0)
+                        ? ''
+                        : checkedLangs.concat(customLangs).join(',');
                     config.MaxTotalTrailers       = parseInt(document.getElementById('max-total-trailers').value, 10) ?? 50;
                     config.DeleteWatchedTrailers  = document.getElementById('delete-watched').checked;
                     ApiClient.updatePluginConfiguration(pluginId, config)
