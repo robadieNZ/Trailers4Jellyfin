@@ -43,28 +43,81 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
         private Task<IEnumerable<IntroInfo>> GetIntrosInternal(BaseItem item, User user)
         {
             var config = Plugin.Instance?.Configuration;
-            if (config == null || !config.EnableCinemaMode || config.NumberOfTrailers <= 0)
-                return Task.FromResult(Enumerable.Empty<IntroInfo>());
-
-            if (string.IsNullOrWhiteSpace(config.DownloadFolder))
+            if (config == null || !config.EnableCinemaMode)
                 return Task.FromResult(Enumerable.Empty<IntroInfo>());
 
             // Only inject before movies.
             if (item is not MediaBrowser.Controller.Entities.Movies.Movie)
                 return Task.FromResult(Enumerable.Empty<IntroInfo>());
 
-            // Find trailer items that Jellyfin has scanned from the download folder.
-            // The folder must be added as a Jellyfin library so items have a database ID.
-            var downloadFolder = config.DownloadFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            var trailerItems = _libraryManager
+            var adsFolder = AsFolderPrefix(config.AdsFolder);
+            var trailersFolder = AsFolderPrefix(config.DownloadFolder);
+
+            var wantAds = config.EnableCinemaAds && config.NumberOfAds > 0 && adsFolder != null;
+            var wantTrailers = config.NumberOfTrailers > 0 && trailersFolder != null;
+
+            if (!wantAds && !wantTrailers)
+                return Task.FromResult(Enumerable.Empty<IntroInfo>());
+
+            // Both folders must be scanned into a Jellyfin library: the intro API resolves
+            // items by database ID, so a bare path is not playable.
+            var libraryItems = _libraryManager
                 .GetItemList(new InternalItemsQuery { IncludeItemTypes = new[] { BaseItemKind.Movie }, Recursive = true })
+                .Where(t => t.Path != null && !Path.GetFileName(t.Path).StartsWith("._", StringComparison.Ordinal))
+                .ToList();
+
+            var ads = wantAds ? SelectAds(libraryItems, adsFolder!, config.NumberOfAds) : new List<BaseItem>();
+            var trailers = wantTrailers
+                ? SelectTrailers(libraryItems, trailersFolder!, adsFolder, item, config)
+                : new List<BaseItem>();
+
+            if (ads.Count == 0 && trailers.Count == 0)
+                return Task.FromResult(Enumerable.Empty<IntroInfo>());
+
+            _logger.LogInformation(
+                "|Trailers4Jellyfin| Queuing {AdCount} ad(s) then {TrailerCount} trailer(s) before '{Movie}'",
+                ads.Count, trailers.Count, item.Name);
+
+            return Task.FromResult(ads.Concat(trailers).Select(t => new IntroInfo { ItemId = t.Id }));
+        }
+
+        // Ads play in filename order, so a deliberate running order can be set with numeric
+        // prefixes ("01 - Pearl & Dean.mp4", "02 - Flake.mp4"). No rating or genre filtering:
+        // these are hand-picked by the user rather than rotated like trailers.
+        private List<BaseItem> SelectAds(List<BaseItem> libraryItems, string adsFolder, int count)
+        {
+            var ads = libraryItems
+                .Where(t => IsUnder(t.Path!, adsFolder)
+                            && !TrailerDownloadService.IsPartialDownloadArtifact(t.Path!))
+                .OrderBy(t => Path.GetFileName(t.Path!), StringComparer.OrdinalIgnoreCase)
+                .Take(count)
+                .ToList();
+
+            if (ads.Count == 0)
+                _logger.LogDebug(
+                    "|Trailers4Jellyfin| Pre-roll ads are enabled but nothing under '{Folder}' has been "
+                    + "scanned into a Jellyfin library, so no ads can be played. Add that folder as a "
+                    + "library and run a scan.",
+                    adsFolder);
+
+            return ads;
+        }
+
+        private List<BaseItem> SelectTrailers(
+            List<BaseItem> libraryItems,
+            string trailersFolder,
+            string? adsFolder,
+            BaseItem item,
+            Configuration.PluginConfiguration config)
+        {
+            var trailerItems = libraryItems
                 .Where(t =>
-                    t.Path != null
-                    && t.Path.StartsWith(downloadFolder, StringComparison.OrdinalIgnoreCase)
-                    && !Path.GetFileName(t.Path).StartsWith("._", StringComparison.Ordinal)
-                    && t.Path.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase)
+                    IsUnder(t.Path!, trailersFolder)
+                    && t.Path!.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase)
                     // Fragments from an interrupted download are video-only — never serve one.
-                    && !TrailerDownloadService.IsPartialDownloadArtifact(t.Path))
+                    && !TrailerDownloadService.IsPartialDownloadArtifact(t.Path!)
+                    // An ads folder sitting under the download folder is not a trailer pool.
+                    && (adsFolder == null || !IsUnder(t.Path!, adsFolder)))
                 .ToList();
 
             if (trailerItems.Count == 0)
@@ -72,8 +125,8 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                 _logger.LogDebug(
                     "|Trailers4Jellyfin| No trailer items found in Jellyfin library under '{Folder}'. " +
                     "Add the download folder as a Jellyfin Movies library and run a library scan.",
-                    config.DownloadFolder);
-                return Task.FromResult(Enumerable.Empty<IntroInfo>());
+                    trailersFolder);
+                return trailerItems;
             }
 
             // Filter trailers to those rated equal to or lower than the movie being played.
@@ -89,8 +142,6 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                         item.OfficialRating, item.Name);
             }
 
-            List<BaseItem> selected;
-
             if (config.EnableGenreMatching && item.Genres != null && item.Genres.Length > 0)
             {
                 var movieGenres = new HashSet<string>(item.Genres, StringComparer.OrdinalIgnoreCase);
@@ -102,27 +153,34 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Services
                 var matched = scored.Where(x => x.score > 0).ToList();
                 var pool = matched.Count >= config.NumberOfTrailers ? matched : scored;
 
-                selected = pool
+                return pool
                     .OrderByDescending(x => x.score)
                     .ThenBy(_ => Guid.NewGuid())
                     .Take(config.NumberOfTrailers)
                     .Select(x => x.trailer)
                     .ToList();
             }
-            else
-            {
-                selected = trailerItems
-                    .OrderBy(_ => Guid.NewGuid())
-                    .Take(config.NumberOfTrailers)
-                    .ToList();
-            }
 
-            _logger.LogInformation(
-                "|Trailers4Jellyfin| Queuing {Count} intro trailer(s) before '{Movie}'",
-                selected.Count, item.Name);
-
-            return Task.FromResult(selected.Select(t => new IntroInfo { ItemId = t.Id }));
+            return trailerItems
+                .OrderBy(_ => Guid.NewGuid())
+                .Take(config.NumberOfTrailers)
+                .ToList();
         }
+
+        // Normalises a configured folder into a prefix ending in a separator, or null when unset.
+        // The trailing separator keeps siblings distinct — a bare prefix would make
+        // "/media/Trailers" match "/media/TrailersAds" as well.
+        // Separators are normalised too, so a Windows path typed with forward slashes still
+        // matches the back-slashed paths the library stores.
+        private static string? AsFolderPrefix(string? folder) =>
+            string.IsNullOrWhiteSpace(folder)
+                ? null
+                : folder.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+                        .TrimEnd(Path.DirectorySeparatorChar)
+                  + Path.DirectorySeparatorChar;
+
+        private static bool IsUnder(string path, string folderPrefix) =>
+            path.StartsWith(folderPrefix, StringComparison.OrdinalIgnoreCase);
 
         // Lower number = less mature. Trailers whose severity exceeds the movie's are excluded.
         // Unknown or missing ratings are allowed through (benefit of the doubt).

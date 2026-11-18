@@ -64,9 +64,11 @@
 
                         <div class="inputContainer">
                             <label class="inputLabel inputLabelUnfocused" for="num-trailers">Trailers per movie</label>
-                            <input type="number" id="num-trailers" is="emby-input" min="1" max="10" />
+                            <input type="number" id="num-trailers" is="emby-input" min="0" max="10" />
                             <div class="fieldDescription">
                                 How many trailers to play before each movie starts. Default: 2.
+                                Set to <code>0</code> to play no trailers at all — useful with Pre-roll Ads
+                                below if you want only ads before your films.
                             </div>
                         </div>
 
@@ -79,6 +81,54 @@
                                 Prefer trailers whose genre overlaps with the movie you're about to watch
                                 (e.g. horror trailers before horror films, family trailers before animated movies).
                                 Falls back to random trailers if not enough genre matches are found.
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- Pre-roll Ads -->
+                    <fieldset class="verticalSection verticalSection-extrabottompadding">
+                        <legend><h3 class="sectionTitle">Pre-roll Ads</h3></legend>
+                        <p class="fieldDescription">
+                            Plays your own ad clips before the trailers, the way a cinema runs its
+                            idents and adverts first — Pearl &amp; Dean, then the Cadbury's Flake ad,
+                            then the trailers.
+                            <br /><br />
+                            These are entirely separate from trailers: the plugin never downloads,
+                            rotates or deletes them. You supply the files yourself.
+                        </p>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label>
+                                <input is="emby-checkbox" type="checkbox" id="enable-ads" />
+                                <span>Play ads before trailers</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Off by default. Ads play first, then the trailers.
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="ads-folder">Ads folder</label>
+                            <input type="text" id="ads-folder" is="emby-input" placeholder="/media/CinemaAds" />
+                            <div class="fieldDescription">
+                                Folder holding your ad files. Download the clips yourself and drop them in here.
+                                <br /><br />
+                                <strong>This folder must also be added as a Jellyfin <em>Movies</em> library and
+                                scanned</strong> — same requirement as the trailers folder. Jellyfin can only play
+                                an intro for a file it has in its database, so unscanned files are silently skipped.
+                                Use a <em>different</em> folder from the trailers download folder, otherwise your
+                                ads would be treated as trailers and deleted by trailer rotation.
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="num-ads">Ads per movie</label>
+                            <input type="number" id="num-ads" is="emby-input" min="1" max="10" />
+                            <div class="fieldDescription">
+                                How many ads to play before the trailers. Default: 2.
+                                Ads are taken in <strong>filename order</strong>, so you control the running
+                                order by naming them — <code>01 - Pearl and Dean.mp4</code>,
+                                <code>02 - Flake.mp4</code>. If you have fewer files than this, all of them play.
                             </div>
                         </div>
                     </fieldset>
@@ -356,6 +406,9 @@
                     document.getElementById('enable-cinema-mode').checked   = config.EnableCinemaMode !== false;
                     document.getElementById('num-trailers').value           = config.NumberOfTrailers ?? 2;
                     document.getElementById('enable-genre-matching').checked = config.EnableGenreMatching !== false;
+                    document.getElementById('enable-ads').checked           = !!config.EnableCinemaAds;
+                    document.getElementById('ads-folder').value             = config.AdsFolder || '';
+                    document.getElementById('num-ads').value                = config.NumberOfAds ?? 2;
                     document.getElementById('source-now-playing').checked   = config.SourceNowPlaying !== false;
                     document.getElementById('source-upcoming').checked      = config.SourceUpcoming !== false;
                     document.getElementById('source-popular').checked       = !!config.SourcePopular;
@@ -388,8 +441,13 @@
                 ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                     config.TmdbApiKey             = document.getElementById('tmdb-api-key').value;
                     config.EnableCinemaMode       = document.getElementById('enable-cinema-mode').checked;
-                    config.NumberOfTrailers       = parseInt(document.getElementById('num-trailers').value, 10) || 2;
+                    // Not "|| 2": a deliberate 0 (ads only, no trailers) is falsy and would snap back to 2.
+                    var numTrailers               = parseInt(document.getElementById('num-trailers').value, 10);
+                    config.NumberOfTrailers       = Number.isNaN(numTrailers) ? 2 : Math.max(0, numTrailers);
                     config.EnableGenreMatching    = document.getElementById('enable-genre-matching').checked;
+                    config.EnableCinemaAds        = document.getElementById('enable-ads').checked;
+                    config.AdsFolder              = document.getElementById('ads-folder').value.trim();
+                    config.NumberOfAds            = parseInt(document.getElementById('num-ads').value, 10) || 2;
                     config.SourceNowPlaying       = document.getElementById('source-now-playing').checked;
                     config.SourceUpcoming         = document.getElementById('source-upcoming').checked;
                     config.SourcePopular          = document.getElementById('source-popular').checked;

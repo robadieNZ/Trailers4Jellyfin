@@ -1,5 +1,5 @@
 ---
-version: 1.0.19.0
+version: 1.0.20.0
 name: Trailers4Jellyfin
 guid: 7635bf62-6b22-4c4c-9bc7-5d55f0c2bff0
 description: >
@@ -11,8 +11,9 @@ category: General
 owner: robadieNZ
 targetAbi: 10.11.0.0
 changelog:
-  - Add: custom trailer languages — an "Other languages" box on the settings page accepts any ISO 639-1 two-letter codes, so languages outside the checkbox list (Czech, Hebrew, Finnish, Ukrainian, …) can now be requested
-  - Note: TMDB's language tag is supplied by whoever uploaded the trailer, so a trailer can be labelled one language but have audio in another — the filter is only as accurate as TMDB's metadata
+  - Add: pre-roll ads — point the new "Pre-roll Ads" setting at a folder of your own ad clips and they play before the trailers, the way a cinema runs its idents and adverts first. Off by default. Ads play in filename order, and the plugin never downloads, rotates or deletes them. The folder must be added as a Jellyfin Movies library and scanned, same as the trailers folder
+  - Add: trailers can now be disabled independently of ads — set trailers per movie to 0 to play only ads
+  - Fix: trailer folder matching no longer treats a sibling folder as part of the trailer library (a trailers folder of "/media/Trailers" also matched "/media/TrailersAds")
 
 dotnetProjects:
   - name: Jellyfin.Plugin.Trailers4Jellyfin

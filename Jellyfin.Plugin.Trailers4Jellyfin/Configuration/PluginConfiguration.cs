@@ -38,6 +38,21 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.Configuration
         public int NumberOfTrailers { get; set; } = 2;
         public bool EnableGenreMatching { get; set; } = true;
 
+        // ── Pre-roll Ads ──────────────────────────────────────────────────────
+
+        /// <summary>Play ads from <see cref="AdsFolder"/> ahead of the trailers.</summary>
+        public bool EnableCinemaAds { get; set; } = false;
+
+        /// <summary>
+        /// Folder of user-supplied ad files. Unlike trailers these are never downloaded,
+        /// rotated or deleted by the plugin. Must be scanned into a Jellyfin library so the
+        /// files have database IDs, which is what the intro API resolves against.
+        /// </summary>
+        public string AdsFolder { get; set; } = string.Empty;
+
+        /// <summary>Ads to play per movie, taken in filename order.</summary>
+        public int NumberOfAds { get; set; } = 2;
+
         // ── Languages ─────────────────────────────────────────────────────────
 
         /// <summary>Comma-separated ISO 639-1 codes. Empty = all languages allowed.</summary>

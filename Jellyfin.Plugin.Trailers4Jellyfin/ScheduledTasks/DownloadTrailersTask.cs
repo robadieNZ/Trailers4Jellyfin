@@ -235,8 +235,33 @@ namespace Jellyfin.Plugin.Trailers4Jellyfin.ScheduledTasks
             throw new MissingMethodException("Neither GetUsers() nor Users found on IUserManager.");
         }
 
+        private static bool IsSameFolder(string a, string b)
+        {
+            if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return false;
+
+            static string Normalise(string p) => Path.GetFullPath(p)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            try { return string.Equals(Normalise(a), Normalise(b), StringComparison.OrdinalIgnoreCase); }
+            catch { return false; }
+        }
+
         private void CleanupTrailers(Configuration.PluginConfiguration config)
         {
+            // Ads are supplied by the user and must never be rotated or deleted. A nested ads
+            // folder is already safe because the sweeps below are top-level only, but if the ads
+            // folder *is* the download folder the two are indistinguishable on disk — skip
+            // cleanup rather than risk deleting them.
+            if (config.EnableCinemaAds && IsSameFolder(config.AdsFolder, config.DownloadFolder))
+            {
+                _logger.LogWarning(
+                    "|Trailers4Jellyfin| Ads folder and download folder are the same ('{Folder}'), so "
+                    + "trailer cleanup has been skipped to avoid deleting your ads. Point the ads "
+                    + "folder somewhere separate to re-enable trailer rotation.",
+                    config.DownloadFolder);
+                return;
+            }
+
             var downloadFolder = config.DownloadFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
             // Build a lookup of library items by path for watched-status checks.
